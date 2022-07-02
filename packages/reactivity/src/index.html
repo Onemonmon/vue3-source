@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="../dist/reactivity.global.js"></script>
+    <!-- <script src="../../../node_modules/@vue/reactivity/dist/reactivity.global.js"></script> -->
+    <script>
+      const { reactive, effect } = VueReactivity;
+      const data = {
+        name: "lalala",
+        age: 19,
+        other: { money: 1223 },
+      };
+
+      const state = reactive(data);
+      const state1 = reactive(data);
+      const state2 = reactive(state);
+      console.log(state === state1);
+      console.log(state === state2);
+      console.log(state1 === state2);
+
+      effect(() => {
+        console.log(111);
+        state.age++;
+        app.innerHTML = `姓名是${state.name},年龄是${state.age}`;
+      });
+
+      setTimeout(() => {
+        effect(() => {
+          console.log(222);
+          state.age++;
+          effect(() => {
+            console.log(333);
+            state.age++;
+          });
+        });
+      }, 1000);
+    </script>
+  </body>
+</html>
