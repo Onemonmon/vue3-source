@@ -9,24 +9,30 @@
   <body>
     <div id="app"></div>
     <script src="../dist/reactivity.global.js"></script>
-    <!-- <script src="../../../node_modules/vue/dist/vue.global.js"></script> -->
+    <!-- <script src="../../../node_modules/@vue/reactivity/dist/reactivity.global.js"></script> -->
     <script>
-      const { ref, effect } = VueReactivity;
-      // const { ref } = Vue;
-      const state = ref({
+      const { reactive, effect } = VueReactivity;
+      const data = {
         name: "lalala",
         age: 19,
         other: { money: 1223 },
         flag: true,
-      });
-      const number = ref(100);
-      console.log(state, number);
+      };
+      const state = reactive(data);
       effect(() => {
-        app.innerHTML = `${state.value.name} + ${number.value}`;
+        console.log(111);
+        state.age++;
+        app.innerHTML = `姓名是${state.name},年龄是${state.age}`;
       });
       setTimeout(() => {
-        state.value.name = "add";
-        number.value++;
+        effect(() => {
+          console.log(222);
+          state.age++;
+          effect(() => {
+            console.log(333);
+            state.age++;
+          });
+        });
       }, 1000);
     </script>
   </body>

@@ -1,16 +1,37 @@
-export let activeEffect = undefined;
+export let activeEffect: ReactiveEffect | undefined = undefined;
+
+/**
+ * cleanupEffect 清楚effect收集的依赖
+ */
+function cleanupEffect(effect: ReactiveEffect) {
+  const { deps } = effect;
+  deps.forEach((dep) => {
+    dep.delete(effect);
+  });
+  deps.length = 0;
+}
+
 /**
  * 创建一个响应式的effect,用于扩展fn,使得当依赖的数据改变时,会重新执行
  */
-class ReactiveEffect {
+export class ReactiveEffect {
   public active = true;
-  public parent: ReactiveEffect = null; // 父级effect,解决effect嵌套
-  public deps: string[] = []; // 记录依赖的属性
-  constructor(public fn) {}
+  public parent: ReactiveEffect | undefined = undefined; // 父级effect,解决effect嵌套
+  public deps: Set<ReactiveEffect>[] = []; // 记录依赖的属性
+  constructor(public fn: Function, public scheduler?: Function) {}
   run() {
     // 非激活状态,不需要进行依赖收集
     if (!this.active) {
       return this.fn();
+    }
+    // 解决多个effect修改同一个属性导致的嵌套问题
+    let parent = activeEffect;
+    while (parent) {
+      // 如果外层的effect中已经含有当前的effect,则当前effect不执行
+      if (parent === this) {
+        return;
+      }
+      parent = parent.parent;
     }
     // 否则进行依赖收集,将activeEffect与依赖的属性关联起来
     try {
@@ -18,12 +39,21 @@ class ReactiveEffect {
       this.parent = activeEffect;
       // 暴露全局的当前被激活的effect
       activeEffect = this;
-      this.fn();
+      // 需要清理之前收集的依赖
+      cleanupEffect(this);
+      return this.fn();
     } finally {
       // activeEffect = undefined;
       // 返回父级 effect
       activeEffect = this.parent;
-      this.parent = null;
+      this.parent = undefined;
+    }
+  }
+  stop() {
+    if (this.active) {
+      this.active = false;
+      // 需要清理之前收集的依赖
+      cleanupEffect(this);
     }
   }
 }
@@ -31,11 +61,15 @@ class ReactiveEffect {
 /**
  * effect
  * @param fn 执行的副作用,当状态改变时会重新执行
+ * @param options 可以配置调度器
  */
-export function effect(fn) {
-  const _effect = new ReactiveEffect(fn);
+export function effect(fn: Function, options: { scheduler?: Function } = {}) {
+  const _effect = new ReactiveEffect(fn, options.scheduler);
   // 默认先执行一次
   _effect.run();
+  const runner: any = _effect.run.bind(_effect);
+  runner.effect = _effect;
+  return runner;
 }
 
 /**
@@ -57,8 +91,8 @@ export function effect(fn) {
  */
 
 const targetMap: WeakMap<
-  object,
-  Map<string, Set<ReactiveEffect>>
+  Record<string, any>,
+  Map<string | symbol, Set<ReactiveEffect>>
 > = new WeakMap();
 /**
  * track 收集依赖的属性
@@ -66,7 +100,11 @@ const targetMap: WeakMap<
  * @param type get/set
  * @param key 属性
  */
-export function track(target, type, key) {
+export function track(
+  target: Record<string, any>,
+  type: string,
+  key: string | symbol
+) {
   // 不在effect中的属性不收集
   if (!activeEffect) {
     return;
@@ -80,6 +118,13 @@ export function track(target, type, key) {
   let dep = depsMap.get(key);
   if (!dep) {
     depsMap.set(key, (dep = new Set()));
+  }
+  trackEffect(dep);
+}
+
+export function trackEffect(dep: Set<ReactiveEffect>) {
+  if (!activeEffect) {
+    return;
   }
   // 一个effect里用了多次同一个属性,手动去重(性能)
   const shouldTrack = dep.has(activeEffect);
@@ -99,7 +144,13 @@ export function track(target, type, key) {
  * @param value 值
  * @param oldValue 旧值
  */
-export function trigger(target, type, key, value, oldValue) {
+export function trigger(
+  target: Record<string, any>,
+  type: string,
+  key: string | symbol,
+  value: any,
+  oldValue: any
+) {
   // 从 targetMap 中根据 target 找到对应的 depsMap
   const depsMap = targetMap.get(target);
   if (!depsMap) {
@@ -107,20 +158,19 @@ export function trigger(target, type, key, value, oldValue) {
     return;
   }
   const effects = depsMap.get(key);
-  effects &&
-    effects.forEach((effect) => {
-      // 当 effect 中存在修改依赖的属性的代码时,会无限调用 effect,需要屏蔽后续的 effect
-      if (effect !== activeEffect) {
-        // 解决多个effect修改同一个属性导致的嵌套问题
-        let parent = activeEffect;
-        while (parent) {
-          // 如果外层的effect中已经含有当前的effect,则当前effect不执行
-          if (parent === effect) {
-            return;
-          }
-          parent = parent.parent;
-        }
+  effects && triggerEffect(effects);
+}
+
+export function triggerEffect(effects: Set<ReactiveEffect>) {
+  [...effects].forEach((effect) => {
+    // 当 effect 中存在修改依赖的属性的代码时,会无限调用 effect,需要屏蔽后续的 effect
+    if (effect !== activeEffect) {
+      if (effect.scheduler) {
+        // 用户传入自定义调度器
+        effect.scheduler();
+      } else {
         effect.run();
       }
-    });
+    }
+  });
 }

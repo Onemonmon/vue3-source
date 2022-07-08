@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="../dist/reactivity.global.js"></script>
+    <!-- <script src="../../../node_modules/@vue/reactivity/dist/reactivity.global.js"></script> -->
+    <script>
+      const { reactive, effect } = VueReactivity;
+      const data = {
+        name: "lalala",
+        age: 19,
+        other: { money: 1223 },
+        flag: true,
+      };
+      const state = reactive(data);
+      const runner = effect(() => {
+        console.log("render");
+        app.innerHTML = state.flag ? state.name : state.age;
+      });
+      runner.effect.stop();
+      setTimeout(() => {
+        state.flag = false;
+        setTimeout(() => {
+          console.log("修改name，应该不执行render");
+          state.name = "dadada";
+          // runner();
+        }, 1000);
+      }, 1000);
+    </script>
+  </body>
+</html>

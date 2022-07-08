@@ -1,13 +1,12 @@
 import { isObject } from "@vue/shared";
 import { ReactiveFlags, mutableHandlers } from "./baseHandler";
-import { activeEffect } from "./effect";
 
 const reactiveMap = new WeakMap();
 /**
  * reactive
  * @param target 需要处理成响应式的对象
  */
-export function reactive(target) {
+export function reactive(target: Record<string, any>) {
   if (!isObject(target)) {
     return;
   }
@@ -27,4 +26,8 @@ export function reactive(target) {
   const proxy = new Proxy(target, mutableHandlers);
   reactiveMap.set(target, proxy);
   return proxy;
+}
+
+export function isReactive(target: any) {
+  return Boolean(target && target[ReactiveFlags.IS_REACTIVE]);
 }

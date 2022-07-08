@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="../dist/reactivity.global.js"></script>
+    <!-- <script src="../../../node_modules/@vue/reactivity/dist/reactivity.global.js"></script> -->
+    <script>
+      const { reactive, effect } = VueReactivity;
+      const data = {
+        name: "lalala",
+        age: 19,
+        other: { money: 1223 },
+        flag: true,
+      };
+      const state = reactive(data);
+      let waiting = false;
+      const runner = effect(
+        () => {
+          console.log("render");
+          app.innerHTML = state.age;
+        },
+        {
+          scheduler() {
+            console.log("run");
+            if (!waiting) {
+              waiting = true;
+              setTimeout(() => {
+                runner();
+                waiting = false;
+              }, 1000);
+            }
+          },
+        }
+      );
+      state.age = 20;
+      state.age = 30;
+      state.age = 40;
+      state.age = 50;
+    </script>
+  </body>
+</html>

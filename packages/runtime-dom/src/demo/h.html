@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- <script src="../../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
+    <script src="../../dist/runtime-dom.global.js"></script>
+    <script>
+      const { h, render, Text } = VueRuntimeDOM;
+      let node;
+      // vnode = h("div", {});
+      // vnode = h(
+      //   "div",
+      //   {
+      //     style: `color: red; font-size: 19px `,
+      //     class: "a",
+      //     data: 11,
+      //     onClick() {
+      //       alert("111");
+      //     },
+      //   },
+      //   [h("span", "sss"), "foo"]
+      // ); // array
+      vnode = h("div", [
+        h("div", { key: "a" }, "a"),
+        h("div", { key: "b" }, "b"),
+
+        h("div", { key: "c" }, "c"),
+        h("div", { key: "d" }, "d"),
+        h("div", { key: "e" }, "e"),
+
+        h("div", { key: "f" }, "f"),
+        h("div", { key: "g" }, "g"),
+      ]); // text
+      // vnode = h("div", h(Text, "lalala")); // vnode
+      // render(vnode, document.getElementById("app"));
+      // vnode = h("div", ["foo"]); // text
+      render(vnode, document.getElementById("app"));
+      // vnode = h("div", {
+      //   style: { color: "blue" },
+      //   class: "b",
+      //   data: 22,
+      // }); // array
+      vnode = h("div", [
+        h("div", { key: "a" }, "a"),
+        h("div", { key: "b" }, "b"),
+
+        h("div", { key: "d" }, "d"),
+        h("div", { key: "e" }, "e"),
+        h("div", { key: "c" }, "c"),
+        h("div", { key: "h" }, "h"),
+
+        h("div", { key: "f" }, "f"),
+        h("div", { key: "g" }, "g"),
+      ]); // text
+      render(vnode, document.getElementById("app"));
+    </script>
+  </body>
+</html>
