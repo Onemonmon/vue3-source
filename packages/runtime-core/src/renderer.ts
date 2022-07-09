@@ -129,7 +129,7 @@ export const createRenderer: CreateRenderer = (options) => {
 
   // 复用节点 比较元素属性、children
   const patchElement = (n1: VNode, n2: VNode) => {
-    const el = n1.el as Element;
+    const el = (n2.el = n1.el as Element);
     const oldProps = n1.props || EMPTY_OBJ;
     const newProps = n2.props || EMPTY_OBJ;
     patchProps(el, oldProps, newProps);
@@ -237,7 +237,8 @@ export const createRenderer: CreateRenderer = (options) => {
         break;
       }
     }
-    // 3. common sequence + mount
+    // 3. 从头部和尾部分别进行比较，patch相同的节点后，可能出现3中情况
+    // 3.1 只剩下新节点需要挂载 common sequence + mount
     // (a b)
     // (a b) c d
     // i = 2, e1 = 1, e2 = 3
@@ -255,7 +256,7 @@ export const createRenderer: CreateRenderer = (options) => {
         i++;
       }
     }
-    // 4. common sequence + unmount
+    // 3.2 只剩下老节点需要卸载 common sequence + unmount
     // (a b) c d
     // (a b)
     // i = 2, e1 = 3, e2 = 1
@@ -268,20 +269,20 @@ export const createRenderer: CreateRenderer = (options) => {
         i++;
       }
     }
-    // 5. unknown sequence
-    // a b [c d e] f g
-    // a b [e d c h] f g
-    // i = 2, e1 = 4, e2 = 5
+    // 3.3 其他情况 unknown sequence
+    // a b [c d e i] f g
+    // a b [e c d i h] f g
+    // i = 2, e1 = 5, e2 = 6
     else {
       const s1 = i;
       const s2 = i;
-      // 为新children构建 key:index 的map
+      // 3.3.1 为新children构建映射表 Map1<key:index>
+      // {e => 2, c => 3, d => 4, i => 5, h => 6}
       const keyToNewIndexMap = new Map<any, number>();
       for (i = s2; i <= e2; i++) {
         const nextChild = normalizeVNode(c2[i]);
         keyToNewIndexMap.set(nextChild.key, i);
       }
-      // 遍历老children中需要比对的元素
       // 新节点是否需要移动
       let moved = false;
       // 新节点的最大索引
@@ -290,11 +291,13 @@ export const createRenderer: CreateRenderer = (options) => {
       let patched = 0;
       // 需要比对的新节点的长度
       const toBePatched = e2 - s2 + 1;
-      // 新老节点的index的对应关系Map<newIndex, oldIndex>
+      // 3.3.2 构建新老节点的index的映射表 Map2<newIndex, oldIndex>
+      // 能根据oldKey从映射表Map1中找到值，说明oldKey节点可以复用
+      // [0, 0, 0, 0, 0] => [5, 3, 4, 6, 0]
       const newIndexToOldIndexMap = new Array(toBePatched);
       for (i = 0; i < toBePatched; i++) newIndexToOldIndexMap[i] = 0;
       // 构建newIndexToOldIndexMap
-      for (i = s1; i < e1; i++) {
+      for (i = s1; i <= e1; i++) {
         const prevChild = c1[i];
         // 当新节点全比对完后，老chilren还有剩余，则剩余的都是需要卸载的
         if (patched >= toBePatched) {
@@ -318,16 +321,39 @@ export const createRenderer: CreateRenderer = (options) => {
           else {
             moved = true;
           }
-          newIndexToOldIndexMap[i] = newIndex;
+          newIndexToOldIndexMap[newIndex - s2] = i + 1;
           patch(prevChild, normalizeVNode(c2[newIndex]), container);
           patched++;
         }
       }
       // 进行节点移动和挂载
-      // 最长递增序列
+      // 获取newIndexToOldIndexMap的最长递增序列 [5, 3, 4, 6, 0] => [1, 2, 3] => c d i 不需要移动
+      const sequence = getSequence(newIndexToOldIndexMap);
+      let j = sequence.length - 1;
+      for (i = toBePatched - 1; i >= 0; i--) {
+        const nextIndex = i + s2;
+        const nextChild = c2[nextIndex];
+        const anchor =
+          nextIndex + 1 < l2 ? normalizeVNode(c2[nextIndex + 1]).el : null;
+        // 挂载新节点
+        if (newIndexToOldIndexMap[i] === 0) {
+          patch(null, nextChild as VNode, container, anchor);
+        }
+        // 需要移动
+        else if (moved) {
+          if (i !== sequence[j]) {
+            // 需要移动
+            hostInsert((nextChild as VNode).el as Element, container, anchor);
+          } else {
+            // 不需要移动
+            j--;
+          }
+        }
+      }
     }
   };
 
+  // 创建子节点
   const mountElement = (
     vnode: VNode,
     container: Element,
@@ -385,3 +411,71 @@ export const createRenderer: CreateRenderer = (options) => {
     render,
   };
 };
+
+// 3 2 8 9 5 6 11 12 4
+// 1. 当前项比索引结果集的最后一项大，则直接push进索引结果集
+// 2. 当前项比索引结果集的最后一项小，则通过二分查找在索引结果集中找到第一个比当前项大的项，替换成当前项
+function getSequence(arr: number[]) {
+  const len = arr.length;
+  const p = new Array(len).fill(-1); // 用于追溯
+  const indexResult = [0]; // 索引结果集，默认为第一个，存放的是arr中数据的索引值
+  let lastIndex = 0; // 索引结果集中的最后一项
+  for (let i = 0; i < len; i++) {
+    const arrI = arr[i];
+    if (arrI !== 0) {
+      lastIndex = indexResult[indexResult.length - 1];
+      const lastI = arr[lastIndex];
+      // 1. 当前项比索引结果集的最后一项大，则直接push进结果
+      if (lastI < arrI) {
+        // push前，需要记录当前push的项的前一个索引值
+        p[i] = lastIndex;
+        indexResult.push(i);
+      }
+      // 2. 当前项比索引结果集的最后一项小，则通过二分查找在索引结果集中找到第一个比当前项大的项，替换成当前项
+      else {
+        let start = 0;
+        let end = indexResult.length - 1;
+        while (start < end) {
+          const mid = (start + end) >> 1;
+          const cur = arr[indexResult[mid]];
+          if (cur > arrI) {
+            end = mid;
+          } else {
+            start = mid + 1;
+          }
+        }
+        // 替换前，需要记录当前替换的项的前一个索引值
+        indexResult[start] = i;
+        if (start > 0) {
+          p[i] = indexResult[start - 1];
+        }
+      }
+    }
+  }
+  // p记录了每一项进入结果集时，它的前一项的值（索引值） p [-1, -1, 1, 2, 1, 4, 5, 6, 1]
+  // 开始溯源 indexResult [1, 8, 5, 6, 7]
+  let i = indexResult.length - 1; // 4
+  // 从尾巴开始，因为最后一项肯定是最大的
+  let last = indexResult[i]; // 7
+  // p[7] = 6
+  // p[6] = 5
+  // p[5] = 4
+  // p[4] = 1
+  while (i > 0) {
+    indexResult[i] = last;
+    last = p[last];
+    i--;
+  }
+  return indexResult;
+}
+
+// 3 [0] [-1]
+// 2 [1] [-1, -1]
+// 2 8 [1, 2] [-1, -1, 1]
+// 2 8 9 [1, 2, 3] [-1, -1, 1, 2]
+// 2 5 9 [1, 4, 3] [-1, -1, 1, 2, 1]
+// 2 5 6 [1, 4, 5] [-1, -1, 1, 2, 1, 4]
+// 2 5 6 11 [1, 4, 5, 6] [-1, -1, 1, 2, 1, 4, 5]
+// 2 5 6 11 12 [1, 4, 5, 6, 7] [-1, -1, 1, 2, 1, 4, 5, 6]
+// 2 4 6 11 12 [1, 8, 5, 6, 7] [-1, -1, 1, 2, 1, 4, 5, 6, 1]
+// console.log(getSequence([3, 2, 8, 9, 5, 6, 11, 12, 4]));

@@ -32,7 +32,8 @@
 
         h("div", { key: "c" }, "c"),
         h("div", { key: "d" }, "d"),
-        h("div", { key: "e" }, "e"),
+        h("div", { key: "e", style: { color: "green" } }, "e"),
+        h("div", { key: "i" }, "i"),
 
         h("div", { key: "f" }, "f"),
         h("div", { key: "g" }, "g"),
@@ -47,18 +48,21 @@
       //   data: 22,
       // }); // array
       vnode = h("div", [
-        h("div", { key: "a" }, "a"),
+        h("div", { key: "a", style: { color: "red" } }, "a"),
         h("div", { key: "b" }, "b"),
 
-        h("div", { key: "d" }, "d"),
         h("div", { key: "e" }, "e"),
         h("div", { key: "c" }, "c"),
+        h("div", { key: "d" }, "d"),
+        h("div", { key: "i" }, "i"),
         h("div", { key: "h" }, "h"),
 
         h("div", { key: "f" }, "f"),
         h("div", { key: "g" }, "g"),
       ]); // text
-      render(vnode, document.getElementById("app"));
+      setTimeout(() => {
+        render(vnode, document.getElementById("app"));
+      }, 1000);
     </script>
   </body>
 </html>

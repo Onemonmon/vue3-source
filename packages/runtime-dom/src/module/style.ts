@@ -5,10 +5,10 @@ export const patchStyle = (
   prevValue: any | null,
   nextValue: any | null
 ) => {
+  if (prevValue) {
+    el.removeAttribute("style");
+  }
   if (nextValue) {
-    if (prevValue) {
-      el.removeAttribute("style");
-    }
     // 设置新样式
     if (isString(nextValue)) {
       (el as HTMLElement).style.cssText = nextValue;
