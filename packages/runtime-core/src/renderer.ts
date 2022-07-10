@@ -1,12 +1,23 @@
-import { EMPTY_OBJ, isString, ShapeFlags } from "@vue/shared";
+import { reactive, ReactiveEffect } from "@vue/reactivity";
+import { EMPTY_OBJ, hasOwn, isArray, ShapeFlags } from "@vue/shared";
+import { queueJob } from "./scheduler";
+import {
+  Component,
+  ComponentInternalInstance,
+  createComponentInstance,
+  setupComponent,
+} from "./component";
 import {
   isSameVNodeType,
   VNode,
   Text,
+  Fragment,
   isVNode,
   createVNode,
   VNodeChildAtom,
+  normalizeVNode,
 } from "./vnode";
+import { initProps } from "./componentProps";
 
 /**
  * 操作节点的方法
@@ -15,7 +26,11 @@ export type RenderOptions = {
   // 设置属性
   patchProp: (el: Element, key: string, prevValue: any, nextValue: any) => void;
   // 插入
-  insert: (el: Element | Text, parent: Element, anchor: Element | null) => void;
+  insert: (
+    el: Element | Text,
+    parent: Element,
+    anchor: Element | Text | null
+  ) => void;
   // 删除
   remove: (el: Element) => void;
   // 创建元素节点
@@ -72,44 +87,123 @@ export const createRenderer: CreateRenderer = (options) => {
     hostRemove(vnode.el as Element);
   };
 
-  const unmountChildren = (children: VNodeChildAtom[]) => {};
+  const unmountChildren = (children: VNode[]) => {
+    for (let i = 0; i < children.length; i++) {
+      unmount(children[i]);
+    }
+  };
 
   // 核心函数 进行元素比对 => 挂载 更新
   const patch = (
     n1: VNode | null,
     n2: VNode,
     container: Element,
-    anchor: Element | null = null
+    anchor: Element | Text | null = null
   ) => {
     if (n1 === n2) return;
     // 如果元素类型不同，直接卸载旧元素，挂载新元素
     if (n1 && !isSameVNodeType(n1, n2)) {
       // 卸载旧元素
       unmount(n1);
+      // 下面代码会判断为需要挂载新元素
       n1 = null;
     }
     const { type, shapeFlag } = n2;
     switch (type) {
+      // render(h(Text, 'lalala'), app)
       case Text:
         processText(n1, n2, container);
         break;
+      // render(h(Fragment, ['lalala']), app)
+      case Fragment:
+        processFragment(n1, n2, container);
+        break;
       default:
+        // render(h('div', 'lalala'), app)
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(n1, n2, container, anchor);
         }
+        // render(h(VueComponent), app)
+        else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+          processComponent(n1, n2, container);
+        }
     }
+  };
+
+  // 处理组件
+  const processComponent = (
+    n1: VNode | null,
+    n2: VNode,
+    container: Element
+  ) => {
+    if (n1 === null) {
+      mountComponent(n2, container);
+    } else {
+      // patchComponent()
+    }
+  };
+
+  const setupRenderEffect = (
+    instance: ComponentInternalInstance,
+    container: Element
+  ) => {
+    const { render, proxy } = instance;
+    // 组件 挂载 & 更新
+    const componentUpdateFn = () => {
+      if (!instance.isMounted) {
+        // 挂载
+        const subTree = render && render.call(proxy);
+        patch(null, subTree as VNode, container);
+        instance.subTree = subTree;
+        instance.isMounted = true;
+      } else {
+        // 更新
+        const subTree = render && render.call(proxy);
+        patch(instance.subTree, subTree as VNode, container);
+        instance.subTree = subTree;
+      }
+    };
+    const effect = new ReactiveEffect(componentUpdateFn, () =>
+      queueJob(update)
+    );
+    const update = (instance.update = () => effect.run());
+    update();
+  };
+
+  // 挂载组件
+  const mountComponent = (vnode: VNode, container: Element) => {
+    // 1. 创建组件实例
+    const instance = (vnode.component = createComponentInstance(vnode));
+    // 2. 为组件实例赋值
+    setupComponent(instance);
+    // 3. 创建effect
+    setupRenderEffect(instance, container);
   };
 
   // 处理文本节点
   const processText = (n1: VNode | null, n2: VNode, container: Element) => {
     if (n1 === null) {
-      hostInsert(hostCreateText(n2.children as string), container, null);
+      // 挂载
+      const el = (n2.el = hostCreateText(n2.children as string));
+      hostInsert(el, container, null);
     } else {
-      // 复用节点，直接修改文本
-      const el = (n2.el = n2.el as Element);
+      // 更新，复用节点，直接修改文本
+      const el = (n2.el = n1.el as Element);
       if (n1.children !== n2.children) {
         hostSetText(el, n2.children as string);
       }
+    }
+  };
+
+  // 处理Fragment Fragment的children只能是数组
+  const processFragment = (n1: VNode | null, n2: VNode, container: Element) => {
+    if (n1 === null) {
+      if (!isArray(n2.children)) {
+        return;
+      }
+      mountChildren(n2.children as VNodeChildAtom[], container);
+    } else {
+      patchChildren(n1, n2, container);
     }
   };
 
@@ -118,21 +212,25 @@ export const createRenderer: CreateRenderer = (options) => {
     n1: VNode | null,
     n2: VNode,
     container: Element,
-    anchor: Element | null = null
+    anchor: Element | Text | null = null
   ) => {
     if (n1 === null) {
       mountElement(n2, container, anchor);
     } else {
+      // 此时 n1 n2 isSameVNodeType
       patchElement(n1, n2);
     }
   };
 
   // 复用节点 比较元素属性、children
   const patchElement = (n1: VNode, n2: VNode) => {
+    // 复用节点
     const el = (n2.el = n1.el as Element);
     const oldProps = n1.props || EMPTY_OBJ;
     const newProps = n2.props || EMPTY_OBJ;
+    // 比较属性
     patchProps(el, oldProps, newProps);
+    // 比较children
     patchChildren(n1, n2, el);
   };
 
@@ -168,13 +266,13 @@ export const createRenderer: CreateRenderer = (options) => {
     // 空     空       NODO
     const c1 = n1.children;
     const c2 = n2.children;
-    const { shapeFlag: prevShapFlag } = n2;
+    const { shapeFlag: prevShapFlag } = n1;
     const { shapeFlag } = n2;
     // 新 = 文本 | 空
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN || c2 === null) {
       // 旧 = 数组 卸载数组
       if (prevShapFlag & ShapeFlags.ARRAY_CHILDREN) {
-        unmountChildren(c2 as VNodeChildAtom[]);
+        unmountChildren(c1 as VNode[]);
       }
       // 设置文本
       else if (c1 !== c2) {
@@ -330,6 +428,7 @@ export const createRenderer: CreateRenderer = (options) => {
       // 获取newIndexToOldIndexMap的最长递增序列 [5, 3, 4, 6, 0] => [1, 2, 3] => c d i 不需要移动
       const sequence = getSequence(newIndexToOldIndexMap);
       let j = sequence.length - 1;
+      // 从后往前插入
       for (i = toBePatched - 1; i >= 0; i--) {
         const nextIndex = i + s2;
         const nextChild = c2[nextIndex];
@@ -353,11 +452,11 @@ export const createRenderer: CreateRenderer = (options) => {
     }
   };
 
-  // 创建子节点
+  // 创建元素节点
   const mountElement = (
     vnode: VNode,
     container: Element,
-    anchor: Element | null = null
+    anchor: Element | Text | null = null
   ) => {
     const { props, shapeFlag, children } = vnode;
     const el = (vnode.el = hostCreateElement(vnode.type as string));
@@ -375,21 +474,16 @@ export const createRenderer: CreateRenderer = (options) => {
         hostPatchProp(el, key, null, props[key]);
       }
     }
+    // 插入
     hostInsert(el, container, anchor);
   };
 
+  // 挂载子节点（数组）
   const mountChildren = (children: VNodeChildAtom[], container: Element) => {
     for (let i = 0; i < children.length; i++) {
+      // 子节点可能是 VNode | string，统一包装成VNode
       const child = normalizeVNode(children[i]);
       patch(null, child, container);
-    }
-  };
-
-  const normalizeVNode = (vnode: VNode | string) => {
-    if (isVNode(vnode)) {
-      return vnode as VNode;
-    } else {
-      return createVNode(Text, null, vnode as string);
     }
   };
 
@@ -401,7 +495,7 @@ export const createRenderer: CreateRenderer = (options) => {
         unmount(container._vnode);
       }
     } else {
-      // 进行patch
+      // 挂载和更新
       patch(container._vnode || null, vnode, container);
     }
     container._vnode = vnode;
@@ -415,6 +509,7 @@ export const createRenderer: CreateRenderer = (options) => {
 // 3 2 8 9 5 6 11 12 4
 // 1. 当前项比索引结果集的最后一项大，则直接push进索引结果集
 // 2. 当前项比索引结果集的最后一项小，则通过二分查找在索引结果集中找到第一个比当前项大的项，替换成当前项
+// 3. 从索引结果集中的最后一项开始往前溯源
 function getSequence(arr: number[]) {
   const len = arr.length;
   const p = new Array(len).fill(-1); // 用于追溯

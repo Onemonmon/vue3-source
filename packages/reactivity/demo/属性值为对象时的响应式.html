@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="../dist/reactivity.global.js"></script>
+    <!-- <script src="../../../node_modules/@vue/reactivity/dist/reactivity.global.js"></script> -->
+    <script>
+      const { reactive, effect } = VueReactivity;
+      const data = {
+        name: "lalala",
+        age: 19,
+        other: { money: 1223 },
+        flag: true,
+      };
+      // 创建响应式对象，在effect中访问其中的属性时，会收集依赖
+      const state = reactive(data);
+      // effect1副作用，默认会先执行一次
+      effect(() => {
+        /**
+        // 1. 访问state.name 收集依赖 
+              WeakMap<state => {name: Set[effect1]}>
+        // 2. 访问state.age 收集依赖 
+              WeakMap<state => {name: Set[effect1], age: Set[effect1]}>
+        // 3. 访问state.other.money 
+        //    3.1 访问state.other，发现是对象，对state.other进行代理
+        //    3.2 访问other.money 收集依赖 
+                  WeakMap<
+                    state => {name: Set[effect1], age: Set[effect1]},
+                    other => {money: Set[effect1]}
+                  >
+        */
+        app.innerHTML = `姓名是${state.name},年龄是${state.age},余额: ${state.other.money}`;
+      });
+      setTimeout(() => {
+        // 设置other.money 触发依赖
+        // 1. 从WeakMap中找到other的值 {money: Set[effect1]}
+        // 2. 从{money: Set[effect1]}中找到money对应的副作用集合
+        // 3. 依次触法副作用[effect1] => 再次执行effect中函数 => 清空effect1的依赖，重新收集依赖 => loop
+        state.other.money = 2000;
+      }, 1000);
+    </script>
+  </body>
+</html>

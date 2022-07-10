@@ -11,19 +11,20 @@
     <script src="../dist/reactivity.global.js"></script>
     <!-- <script src="../../../node_modules/@vue/reactivity/dist/reactivity.global.js"></script> -->
     <script>
-      const { reactive, effect } = VueReactivity;
+      const { shallowReactive, effect } = VueReactivity;
       const data = {
         name: "lalala",
         age: 19,
         other: { money: 1223 },
-        flag: true,
       };
-      const state = reactive(data);
+      const state = shallowReactive(data);
       effect(() => {
-        app.innerHTML = `姓名是${state.name},年龄是${state.age},余额: ${state.other.money}`;
+        console.log(111);
+        app.innerHTML = `姓名是${state.name},年龄是${state.age},${state.other.money}`;
       });
       setTimeout(() => {
-        state.other.money = 2000;
+        state.age++;
+        state.other.money++;
       }, 1000);
     </script>
   </body>

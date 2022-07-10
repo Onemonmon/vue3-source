@@ -43,7 +43,6 @@ export class ReactiveEffect {
       cleanupEffect(this);
       return this.fn();
     } finally {
-      // activeEffect = undefined;
       // 返回父级 effect
       activeEffect = this.parent;
       this.parent = undefined;
@@ -67,7 +66,7 @@ export function effect(fn: Function, options: { scheduler?: Function } = {}) {
   const _effect = new ReactiveEffect(fn, options.scheduler);
   // 默认先执行一次
   _effect.run();
-  const runner: any = _effect.run.bind(_effect);
+  const runner: any = () => _effect.run();
   runner.effect = _effect;
   return runner;
 }
@@ -100,12 +99,8 @@ const targetMap: WeakMap<
  * @param type get/set
  * @param key 属性
  */
-export function track(
-  target: Record<string, any>,
-  type: string,
-  key: string | symbol
-) {
-  // 不在effect中的属性不收集
+export function track(target: Record<string, any>, key: string | symbol) {
+  // 不在effect中被访问的属性不收集
   if (!activeEffect) {
     return;
   }
@@ -127,8 +122,8 @@ export function trackEffect(dep: Set<ReactiveEffect>) {
     return;
   }
   // 一个effect里用了多次同一个属性,手动去重(性能)
-  const shouldTrack = dep.has(activeEffect);
-  if (!shouldTrack) {
+  const shouldTrack = !dep.has(activeEffect);
+  if (shouldTrack) {
     // 属性记录关联的effect
     dep.add(activeEffect);
     // effect记录依赖的属性 => 清理effect
@@ -144,13 +139,7 @@ export function trackEffect(dep: Set<ReactiveEffect>) {
  * @param value 值
  * @param oldValue 旧值
  */
-export function trigger(
-  target: Record<string, any>,
-  type: string,
-  key: string | symbol,
-  value: any,
-  oldValue: any
-) {
+export function trigger(target: Record<string, any>, key: string | symbol) {
   // 从 targetMap 中根据 target 找到对应的 depsMap
   const depsMap = targetMap.get(target);
   if (!depsMap) {

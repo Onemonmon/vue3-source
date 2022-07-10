@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
+    <script src="../dist/runtime-dom.global.js"></script>
+    <script>
+      const { h, render, Text, Fragment } = VueRuntimeDOM;
+      let node;
+      const VueComponent = {
+        name: "MyCustomComponent",
+        props: {
+          count: Number,
+          info: Object,
+        },
+        data() {
+          return {
+            name: "张三",
+            age: 19,
+          };
+        },
+        render() {
+          console.log(this);
+          return h(
+            "div",
+            { class: "container" },
+            h("span", [
+              this.name,
+              this.age,
+              this.$attrs.attr1,
+              JSON.stringify(this.info),
+            ]),
+            h(
+              "button",
+              {
+                onClick: () => {
+                  this.age += this.count;
+                  this.name += "1";
+                  this.count++;
+                },
+              },
+              "age ++"
+            ),
+            h(
+              "button",
+              {
+                onClick: () => {
+                  this.info.address += "lala";
+                },
+              },
+              "address不会更新"
+            )
+          );
+        },
+      };
+      vnode = h(VueComponent, {
+        count: 2,
+        attr1: "allala",
+        info: { address: "alal" },
+      });
+      render(vnode, document.getElementById("app"));
+    </script>
+  </body>
+</html>

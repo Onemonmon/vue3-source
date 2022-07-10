@@ -11,22 +11,11 @@
     <!-- <script src="../../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
     <script src="../../dist/runtime-dom.global.js"></script>
     <script>
-      const { h, render, Text } = VueRuntimeDOM;
+      const { h, render, Fragment } = VueRuntimeDOM;
+      // let type = 'div'
+      let type = Fragment;
       let node;
-      // vnode = h("div", {});
-      // vnode = h(
-      //   "div",
-      //   {
-      //     style: `color: red; font-size: 19px `,
-      //     class: "a",
-      //     data: 11,
-      //     onClick() {
-      //       alert("111");
-      //     },
-      //   },
-      //   [h("span", "sss"), "foo"]
-      // ); // array
-      vnode = h("div", [
+      vnode = h(type, [
         h("div", { key: "a" }, "a"),
         h("div", { key: "b" }, "b"),
 
@@ -37,17 +26,9 @@
 
         h("div", { key: "f" }, "f"),
         h("div", { key: "g" }, "g"),
-      ]); // text
-      // vnode = h("div", h(Text, "lalala")); // vnode
-      // render(vnode, document.getElementById("app"));
-      // vnode = h("div", ["foo"]); // text
+      ]);
       render(vnode, document.getElementById("app"));
-      // vnode = h("div", {
-      //   style: { color: "blue" },
-      //   class: "b",
-      //   data: 22,
-      // }); // array
-      vnode = h("div", [
+      vnode = h(type, [
         h("div", { key: "a", style: { color: "red" } }, "a"),
         h("div", { key: "b" }, "b"),
 
@@ -59,7 +40,7 @@
 
         h("div", { key: "f" }, "f"),
         h("div", { key: "g" }, "g"),
-      ]); // text
+      ]);
       setTimeout(() => {
         render(vnode, document.getElementById("app"));
       }, 1000);

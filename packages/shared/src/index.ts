@@ -13,4 +13,7 @@ export const isOn = (key: string) => onReg.test(key);
 
 export const EMPTY_OBJ = {};
 
+export const hasOwn = (target: object, key: string) =>
+  Object.prototype.hasOwnProperty.call(target, key);
+
 export * from "./shapeFlags";
