@@ -4,6 +4,7 @@ import { track, trigger } from "./effect";
 
 export const enum ReactiveFlags {
   IS_REACTIVE = "__v_isReactive", // 判断对象是否被代理过（是否为响应式）
+  RAW = "__v_raw",
 }
 
 const createGetter = (isReadonly = false, shallow = false) => {
@@ -26,6 +27,8 @@ const createGetter = (isReadonly = false, shallow = false) => {
     console.log("get key: ", key);
     if (key === ReactiveFlags.IS_REACTIVE) {
       return true;
+    } else if (key === ReactiveFlags.RAW) {
+      return target;
     }
     const res = Reflect.get(target, key, receiver);
     // 收集依赖

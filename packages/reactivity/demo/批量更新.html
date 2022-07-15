@@ -11,7 +11,7 @@
     <script src="../dist/reactivity.global.js"></script>
     <!-- <script src="../../../node_modules/@vue/reactivity/dist/reactivity.global.js"></script> -->
     <script>
-      const { reactive, effect } = VueReactivity;
+      const { reactive, effect, toRaw } = VueReactivity;
       const data = {
         name: "lalala",
         age: 19,
@@ -19,6 +19,8 @@
         flag: true,
       };
       const state = reactive(data);
+      const stateRaw = toRaw(state);
+      console.log(stateRaw, stateRaw.other, state, state.other);
       let waiting = false;
       const runner = effect(
         () => {

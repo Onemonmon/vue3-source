@@ -6,9 +6,11 @@ importers:
     specifiers:
       esbuild: ^0.14.48
       minimist: ^1.2.6
+      one-components-vue3: 0.0.6
       typescript: ^4.7.4
       vue: ^3.2.37
     dependencies:
+      one-components-vue3: 0.0.6
       vue: 3.2.37
     devDependencies:
       esbuild: 0.14.48
@@ -337,6 +339,10 @@ packages:
     resolution: {integrity: sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w==}
     dev: false
 
+  /lodash/4.17.21:
+    resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
+    dev: false
+
   /magic-string/0.25.9:
     resolution: {integrity: sha512-RmF0AsMzgt25qzqqLc1+MbHmhdx0ojF2Fvs4XnOqz2ZOBXzzkEwc/dJQZCYHAn7v1jbVOjAZfK8msRn4BxO4VQ==}
     dependencies:
@@ -351,6 +357,12 @@ packages:
     resolution: {integrity: sha512-MqBkQh/OHTS2egovRtLk45wEyNXwF+cokD+1YPf9u5VfJiRdAiRwB2froX5Co9Rh20xs4siNPm8naNotSD6RBw==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
+    dev: false
+
+  /one-components-vue3/0.0.6:
+    resolution: {integrity: sha512-Vib8ek/QKwTMHnjl/BXUvnckbyjV59x0dDhVc8sHB43Ys/LWTIzM/wU+ppYWji+DD0/E3iuUVdcQi40AwGNFiA==}
+    dependencies:
+      lodash: 4.17.21
     dev: false
 
   /picocolors/1.0.0:

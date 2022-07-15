@@ -1,42 +1,67 @@
-import { reactive } from "@vue/reactivity";
-import { hasOwn } from "@vue/shared";
+import { proxyRef, reactive } from "@vue/reactivity";
+import { hasOwn, isFunction, isObject } from "@vue/shared";
+import { emit } from "./componentEmits";
 import { initProps } from "./componentProps";
+import { initSlots, RawSlots } from "./componentSlots";
 import { VNode, VNodeChildAtom } from "./vnode";
 
+type InternalRenderFunction = () => VNodeChildAtom | VNodeChildAtom[];
 export type Component = {
   name?: string;
   props?: Record<string, any>;
   data?: () => Record<string, any>;
-  render?: () => VNodeChildAtom | VNodeChildAtom[];
+  render?: InternalRenderFunction;
+  setup?: (
+    props: Record<string, any>,
+    setupContext: SetupContext
+  ) => object | InternalRenderFunction;
+};
+
+export type EmitFn = (eventName: string, ...args: any) => any;
+
+export type SetupContext = {
+  emit: EmitFn;
+  slots: RawSlots;
 };
 
 export type ComponentInternalInstance = {
   data: Record<string, any> | null; // 响应式数据
+  setupState: Record<string, any> | null; // setup响应式数据
   vnode: VNode; // 组件对应的虚拟节点
+  type: Component;
+  next: VNode | null; // 组件更新后的虚拟节点
   subTree: VNode | null; // 渲染的组件内容对应的虚拟节点
   isMounted: boolean; // 是否已经挂载
   update: Function | null; // 强制更新组件内容的方法
   propsOptions: Record<string, any> | null;
   props: Record<string, any> | null;
   attrs: Record<string, any> | null;
+  slots: RawSlots | null;
   proxy: any | null; // 代理对象，代理data、props、attrs
   render: Function | null;
+  emit: EmitFn | null; // 触发组件自定义事件
 };
 
 // 创建组件实例
 export const createComponentInstance = (vnode: VNode) => {
   const instance: ComponentInternalInstance = {
     data: null,
+    setupState: null,
     vnode,
+    type: vnode.type as Component,
+    next: null,
     subTree: null,
     isMounted: false,
     update: null,
     propsOptions: (vnode.type as Component).props || {},
     props: null,
     attrs: null,
+    slots: null,
     proxy: null,
     render: null,
+    emit: null,
   };
+  instance.emit = emit.bind(null, instance);
   return instance;
 };
 
@@ -46,9 +71,11 @@ export const publicPropertiesMap: Record<string, any> = {
 
 const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   get(target, key) {
-    const { data, props } = target;
+    const { data, props, setupState } = target;
     const _key = key as string;
-    if (data && hasOwn(data, _key)) {
+    if (setupState && hasOwn(setupState, _key)) {
+      return setupState[key];
+    } else if (data && hasOwn(data, _key)) {
       return data[_key];
     } else if (props && hasOwn(props, _key)) {
       return props[_key];
@@ -60,9 +87,11 @@ const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     }
   },
   set(target, key, value) {
-    const { data, props, attrs } = target;
+    const { data, props, setupState } = target;
     const _key = key as string;
-    if (data && hasOwn(data, _key)) {
+    if (setupState && hasOwn(setupState, _key)) {
+      setupState[_key] = value;
+    } else if (data && hasOwn(data, _key)) {
       data[_key] = value;
     } else if (props && hasOwn(props, _key)) {
       // 设置props属性xx的时候会警报 this.xx = xx
@@ -76,12 +105,56 @@ const PublicInstanceProxyHandlers: ProxyHandler<any> = {
 
 // 为组件实例赋值
 export const setupComponent = (instance: ComponentInternalInstance) => {
-  const { props, type } = instance.vnode;
+  const { props, type, children } = instance.vnode;
+  // 创建属性
   initProps(instance, props);
+  // 创建插槽
+  initSlots(instance, children);
   // 为组件实例创建代理对象
   instance.proxy = new Proxy(instance, PublicInstanceProxyHandlers);
   // 将data变成响应式
-  const { data = () => ({}), render = () => {} } = type as Component;
+  const { data = () => ({}), setup } = type as Component;
   instance.data = reactive(data.call(instance.proxy));
-  instance.render = render;
+  if (setup) {
+    const setupContext = createSetupContext(instance);
+    const setupResult = setup(
+      instance.props as Record<string, any>,
+      setupContext
+    );
+    handleSetupResult(instance, setupResult);
+  }
+  finishComponentSetup(instance);
+};
+
+export const handleSetupResult = (
+  instance: ComponentInternalInstance,
+  setupResult: unknown
+) => {
+  if (isFunction(setupResult)) {
+    // 返回的是render函数
+    instance.render = setupResult as InternalRenderFunction;
+  } else if (isObject(setupResult)) {
+    // 返回的是state数据
+    instance.setupState = proxyRef(setupResult as object);
+  }
+};
+
+export const finishComponentSetup = (instance: ComponentInternalInstance) => {
+  if (instance.render === null) {
+    const Component = instance.type;
+    if (Component.render) {
+      instance.render = Component.render;
+    } else {
+      console.warn(`Component is missing render function.`);
+    }
+  }
+};
+
+export const createSetupContext = (
+  instance: ComponentInternalInstance
+): SetupContext => {
+  return {
+    emit: instance.emit as EmitFn,
+    slots: instance.slots || {},
+  };
 };

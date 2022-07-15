@@ -1,8 +1,7 @@
-import { reactive, ReactiveEffect } from "@vue/reactivity";
-import { EMPTY_OBJ, hasOwn, isArray, ShapeFlags } from "@vue/shared";
+import { ReactiveEffect } from "@vue/reactivity";
+import { EMPTY_OBJ, isArray, ShapeFlags } from "@vue/shared";
 import { queueJob } from "./scheduler";
 import {
-  Component,
   ComponentInternalInstance,
   createComponentInstance,
   setupComponent,
@@ -12,12 +11,10 @@ import {
   VNode,
   Text,
   Fragment,
-  isVNode,
-  createVNode,
   VNodeChildAtom,
   normalizeVNode,
 } from "./vnode";
-import { initProps } from "./componentProps";
+import { hasPropsChanged, updateProps } from "./componentProps";
 
 /**
  * 操作节点的方法
@@ -139,8 +136,40 @@ export const createRenderer: CreateRenderer = (options) => {
     if (n1 === null) {
       mountComponent(n2, container);
     } else {
-      // patchComponent()
+      // 组件更新更新的是props
+      updateComponent(n1, n2);
     }
+  };
+
+  const shouldUpdateComponent = (n1: VNode, n2: VNode) => {
+    const { props: prevProps, children: prevChildren } = n1;
+    const { props: nextProps, children: nextChildren } = n2;
+    if (prevProps === nextProps) return false;
+    if (prevChildren || nextChildren) return true;
+    if (prevProps === null) return !!nextProps;
+    return hasPropsChanged(prevProps, nextProps || {});
+  };
+
+  // 更新组件props
+  const updateComponent = (n1: VNode, n2: VNode) => {
+    // 对于元素复用的是dom节点，组件复用的是实例
+    const instance = (n2.component = n1.component) as ComponentInternalInstance;
+    // 判断组件是否需要更新
+    if (shouldUpdateComponent(n1, n2)) {
+      // 将新的vnode放到实例的next属性
+      instance.next = n2;
+      // 需要更新，直接调用更新方法
+      instance.update && instance.update();
+    }
+  };
+
+  const updateComponentPreRender = (
+    instance: ComponentInternalInstance,
+    nextVNode: VNode
+  ) => {
+    instance.vnode = nextVNode;
+    instance.next = null;
+    updateProps(nextVNode.props, instance.props as Record<string, any>);
   };
 
   const setupRenderEffect = (
@@ -158,6 +187,11 @@ export const createRenderer: CreateRenderer = (options) => {
         instance.isMounted = true;
       } else {
         // 更新
+        const { next } = instance;
+        if (next) {
+          // 更新组件的属性
+          updateComponentPreRender(instance, next);
+        }
         const subTree = render && render.call(proxy);
         patch(instance.subTree, subTree as VNode, container);
         instance.subTree = subTree;

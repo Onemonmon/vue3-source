@@ -1,6 +1,6 @@
 import { isObject } from "@vue/shared";
 import { ReactiveEffect, trackEffect, triggerEffect } from "./effect";
-import { reactive } from "./reactive";
+import { isReactive, reactive } from "./reactive";
 
 /**
  * 将对象变成响应式
@@ -8,6 +8,8 @@ import { reactive } from "./reactive";
 function toReactive(target: any) {
   return isObject(target) ? reactive(target) : target;
 }
+
+export const isRef = (target: any) => target && target.__v_isRef;
 
 class RefImpl {
   private _value: any;
@@ -34,3 +36,25 @@ class RefImpl {
 export function ref(target: any) {
   return new RefImpl(target);
 }
+
+export const unRef = (target: any) => (isRef(target) ? target.value : target);
+
+const shallowUnwrapHandlers: ProxyHandler<any> = {
+  get(target, key, receiver) {
+    return unRef(Reflect.get(target, key, receiver));
+  },
+  set(target, key, value, receiver) {
+    const oldValue = target[key];
+    if (isRef(oldValue)) {
+      oldValue.value = value;
+      return true;
+    }
+    return Reflect.set(target, key, value, receiver);
+  },
+};
+
+export const proxyRef = (objectWithRefs: any) => {
+  return isReactive(objectWithRefs)
+    ? objectWithRefs
+    : new Proxy(objectWithRefs, shallowUnwrapHandlers);
+};

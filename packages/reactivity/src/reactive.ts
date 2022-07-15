@@ -23,13 +23,18 @@ export const shallowReactive = (target: Record<string, any>) => {
   );
 };
 
+export const toRaw = (observed: any): any => {
+  const raw = observed && observed[ReactiveFlags.RAW];
+  return raw ? toRaw(raw) : observed;
+};
+
 export const createReactiveObject = (
   target: Record<string, any>,
   baseHandlers: ProxyHandler<any>,
   proxyMap: WeakMap<object, any>
 ) => {
   if (!isObject(target)) {
-    return;
+    return target;
   }
 
   // 对象被代理过则直接返回自身

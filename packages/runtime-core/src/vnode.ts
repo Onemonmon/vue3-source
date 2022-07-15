@@ -1,5 +1,6 @@
-import { isObject, isString, ShapeFlags } from "@vue/shared";
+import { isObject, isString, ShapeFlags, isArray } from "@vue/shared";
 import { Component, ComponentInternalInstance } from "./component";
+import { RawSlots } from "./componentSlots";
 
 export const Text = Symbol("Text");
 export const Fragment = Symbol("Fragment");
@@ -13,12 +14,14 @@ export type VNodeTypes =
 
 export type VNodeChildAtom = string | VNode;
 
+export type VNodeChildren = VNodeChildAtom[] | string | RawSlots | null;
+
 export type VNode = {
   __v_isVNode: true;
   type: VNodeTypes;
   props: Record<string, any> | null;
   key: string | number | symbol | null;
-  children: VNodeChildAtom[] | string | null;
+  children: VNodeChildren;
   el: Element | Text | null;
   shapeFlag: number;
   patchFlag: number;
@@ -48,7 +51,7 @@ export const normalizeChildren = (children: VNodeChildAtom[]) => {
 export const createVNode = (
   type: VNodeTypes,
   props: Record<string, any> | null,
-  children: VNodeChildAtom[] | string | null
+  children: VNodeChildren
 ) => {
   const vnode: VNode = {
     __v_isVNode: true,
@@ -65,11 +68,18 @@ export const createVNode = (
     patchFlag: 0,
     component: null,
   };
-  // 判断children是文本还是数组
+  // 判断children的类型
+  // 1. 文本
+  // 2. 数组
+  // 2. 对象 => 插槽
   if (children) {
     vnode.shapeFlag |= isString(children)
       ? ShapeFlags.TEXT_CHILDREN
-      : ShapeFlags.ARRAY_CHILDREN;
+      : isArray(children)
+      ? ShapeFlags.ARRAY_CHILDREN
+      : isObject(children)
+      ? ShapeFlags.SLOTS_CHILDREN
+      : ShapeFlags.ELEMENT;
     if (vnode.shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
       normalizeChildren(children as VNodeChildAtom[]);
     }

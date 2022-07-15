@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev-re": "node scripts/dev.js reactivity -f global",
+    "dev-core": "node scripts/dev.js runtime-core -f global",
     "dev-dom": "node scripts/dev.js runtime-dom -f global",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
