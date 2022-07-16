@@ -20,4 +20,10 @@ export const hasOwn = (target: object, key: string) =>
 export const capitalize = (str: string) =>
   str.charAt(0).toUpperCase() + str.slice(1);
 
+export const invokeArrayFns = (fns: Function[]) => {
+  for (let i = 0; i < fns.length; i++) {
+    fns[i]();
+  }
+};
+
 export * from "./shapeFlags";

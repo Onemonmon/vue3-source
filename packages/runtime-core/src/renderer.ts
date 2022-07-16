@@ -1,5 +1,5 @@
 import { ReactiveEffect } from "@vue/reactivity";
-import { EMPTY_OBJ, isArray, ShapeFlags } from "@vue/shared";
+import { EMPTY_OBJ, invokeArrayFns, isArray, ShapeFlags } from "@vue/shared";
 import { queueJob } from "./scheduler";
 import {
   ComponentInternalInstance,
@@ -180,21 +180,39 @@ export const createRenderer: CreateRenderer = (options) => {
     // 组件 挂载 & 更新
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
+        const { bm, m } = instance;
         // 挂载
+        // 触发onBeforeMount注册的hooks
+        if (bm) {
+          invokeArrayFns(bm);
+        }
         const subTree = render && render.call(proxy);
         patch(null, subTree as VNode, container);
         instance.subTree = subTree;
         instance.isMounted = true;
+        // 触发onMounted注册的hooks
+        if (m) {
+          invokeArrayFns(m);
+        }
       } else {
         // 更新
-        const { next } = instance;
+        const { next, bu, u } = instance;
         if (next) {
           // 更新组件的属性
           updateComponentPreRender(instance, next);
         }
-        const subTree = render && render.call(proxy);
-        patch(instance.subTree, subTree as VNode, container);
-        instance.subTree = subTree;
+        // 触发onBeforeUpdate注册的hooks
+        if (bu) {
+          invokeArrayFns(bu);
+        }
+        const nextTree = render && render.call(proxy);
+        const prevTree = instance.subTree;
+        instance.subTree = nextTree;
+        patch(prevTree, nextTree as VNode, container);
+        // 触发onUpdated注册的hooks
+        if (u) {
+          invokeArrayFns(u);
+        }
       }
     };
     const effect = new ReactiveEffect(componentUpdateFn, () =>

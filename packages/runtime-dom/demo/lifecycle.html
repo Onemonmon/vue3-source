@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
+    <script src="../dist/runtime-dom.global.js"></script>
+    <script>
+      const {
+        h,
+        render,
+        ref,
+        reactive,
+        toRefs,
+        Fragment,
+        onMounted,
+        onBeforeMount,
+        onUpdated,
+        onBeforeUpdate,
+        getCurrentInstance,
+      } = VueRuntimeDOM;
+      let vnode;
+      const VueComponent = {
+        props: { address: String },
+        setup(props, { emit, slots }) {
+          console.log("setup");
+          const state = reactive({ name: "zs", age: 18 });
+          onMounted(() => {
+            const instance = getCurrentInstance();
+            console.log("onMounted", instance);
+            setTimeout(() => {
+              state.age++;
+            }, 1000);
+          });
+          onBeforeMount(() => {
+            console.log("onBeforeMount");
+          });
+          onUpdated(() => {
+            console.log("onUpdated");
+          });
+          onBeforeUpdate(() => {
+            console.log("onBeforeUpdate");
+          });
+          return {
+            ...toRefs(state),
+          };
+        },
+        render() {
+          console.log("render");
+          return h(Fragment, [h("span", this.address), this.age, this.name]);
+        },
+      };
+      vnode = h(VueComponent, {
+        address: "深圳",
+      });
+      render(vnode, document.getElementById("app"));
+    </script>
+  </body>
+</html>

@@ -33,6 +33,17 @@ class RefImpl {
   }
 }
 
+class ObjectRefImpl {
+  private __v_isRef: boolean = true;
+  constructor(private _object: any, private _key: string) {}
+  get value() {
+    return this._object[this._key];
+  }
+  set value(newValue) {
+    this._object[this._key] = newValue;
+  }
+}
+
 export function ref(target: any) {
   return new RefImpl(target);
 }
@@ -57,4 +68,19 @@ export const proxyRef = (objectWithRefs: any) => {
   return isReactive(objectWithRefs)
     ? objectWithRefs
     : new Proxy(objectWithRefs, shallowUnwrapHandlers);
+};
+
+export const toRef = (object: any, key: string) => {
+  if (isRef(object)) {
+    return object;
+  }
+  return new ObjectRefImpl(object, key);
+};
+
+export const toRefs = (object: any) => {
+  const result: any = {};
+  for (let key in object) {
+    result[key] = toRef(object, key);
+  }
+  return result;
 };

@@ -17,12 +17,19 @@
         props: { address: String },
         setup(props, { emit, slots }) {
           const { address } = props;
-          return () =>
-            h(Fragment, [
-              h("span", address),
-              slots.header && slots.header(),
-              slots.footer && slots.footer(),
-            ]);
+          // return () =>
+          //   h(Fragment, [
+          //     h("span", address),
+          //     slots.header && slots.header(),
+          //     slots.footer && slots.footer(),
+          //   ]);
+        },
+        render() {
+          return h(Fragment, [
+            h("span", this.address),
+            this.$slots.header && this.$slots.header(),
+            this.$slots.footer && this.$slots.footer(),
+          ]);
         },
       };
       vnode = h(

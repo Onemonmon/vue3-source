@@ -6,6 +6,7 @@ import { initSlots, RawSlots } from "./componentSlots";
 import { VNode, VNodeChildAtom } from "./vnode";
 
 type InternalRenderFunction = () => VNodeChildAtom | VNodeChildAtom[];
+
 export type Component = {
   name?: string;
   props?: Record<string, any>;
@@ -17,12 +18,21 @@ export type Component = {
   ) => object | InternalRenderFunction;
 };
 
+export const enum LifecycleHooks {
+  BEFORE_MOUNT = "bm",
+  MOUNTED = "m",
+  BEFORE_UPDATE = "bu",
+  UPDATED = "u",
+}
+
 export type EmitFn = (eventName: string, ...args: any) => any;
 
 export type SetupContext = {
   emit: EmitFn;
   slots: RawSlots;
 };
+
+export type LifecycleHook<TFn = Function> = TFn[];
 
 export type ComponentInternalInstance = {
   data: Record<string, any> | null; // 响应式数据
@@ -39,8 +49,21 @@ export type ComponentInternalInstance = {
   slots: RawSlots | null;
   proxy: any | null; // 代理对象，代理data、props、attrs
   render: Function | null;
+  [LifecycleHooks.BEFORE_MOUNT]: LifecycleHook | null;
+  [LifecycleHooks.BEFORE_UPDATE]: LifecycleHook | null;
+  [LifecycleHooks.MOUNTED]: LifecycleHook | null;
+  [LifecycleHooks.UPDATED]: LifecycleHook | null;
   emit: EmitFn | null; // 触发组件自定义事件
 };
+
+export let currentInstance: ComponentInternalInstance | null = null;
+
+export const setCurrentInstance = (instance: ComponentInternalInstance) =>
+  (currentInstance = instance);
+
+export const unsetCurrentInstance = () => (currentInstance = null);
+
+export const getCurrentInstance = () => currentInstance;
 
 // 创建组件实例
 export const createComponentInstance = (vnode: VNode) => {
@@ -59,6 +82,10 @@ export const createComponentInstance = (vnode: VNode) => {
     slots: null,
     proxy: null,
     render: null,
+    bm: null,
+    bu: null,
+    m: null,
+    u: null,
     emit: null,
   };
   instance.emit = emit.bind(null, instance);
@@ -67,6 +94,7 @@ export const createComponentInstance = (vnode: VNode) => {
 
 export const publicPropertiesMap: Record<string, any> = {
   $attrs: (i: ComponentInternalInstance) => i.attrs,
+  $slots: (i: ComponentInternalInstance) => i.slots,
 };
 
 const PublicInstanceProxyHandlers: ProxyHandler<any> = {
@@ -117,10 +145,13 @@ export const setupComponent = (instance: ComponentInternalInstance) => {
   instance.data = reactive(data.call(instance.proxy));
   if (setup) {
     const setupContext = createSetupContext(instance);
+    // 设置当前实例 供生命周期使用
+    setCurrentInstance(instance);
     const setupResult = setup(
       instance.props as Record<string, any>,
       setupContext
     );
+    unsetCurrentInstance();
     handleSetupResult(instance, setupResult);
   }
   finishComponentSetup(instance);
