@@ -176,9 +176,10 @@ export const createRenderer: CreateRenderer = (options) => {
     instance: ComponentInternalInstance,
     container: Element
   ) => {
-    const { render, proxy } = instance;
     // 组件 挂载 & 更新
     const componentUpdateFn = () => {
+      debugger;
+      const { render, proxy } = instance;
       if (!instance.isMounted) {
         const { bm, m } = instance;
         // 挂载
@@ -186,7 +187,10 @@ export const createRenderer: CreateRenderer = (options) => {
         if (bm) {
           invokeArrayFns(bm);
         }
+        console.log("组件开始执行render");
+        // 在这里调用render时，开始收集render中响应式变量的依赖
         const subTree = render && render.call(proxy);
+        console.log("获取要挂载的虚拟节点，开始进行patch", subTree);
         patch(null, subTree as VNode, container);
         instance.subTree = subTree;
         instance.isMounted = true;
@@ -205,7 +209,9 @@ export const createRenderer: CreateRenderer = (options) => {
         if (bu) {
           invokeArrayFns(bu);
         }
+        console.log("组件开始执行render");
         const nextTree = render && render.call(proxy);
+        console.log("获取要更新的虚拟节点，开始进行patch", nextTree);
         const prevTree = instance.subTree;
         instance.subTree = nextTree;
         patch(prevTree, nextTree as VNode, container);
@@ -364,7 +370,7 @@ export const createRenderer: CreateRenderer = (options) => {
     // (a b) d e
     while (i < e1 && i < e2) {
       const n1 = c1[i];
-      const n2 = normalizeVNode(c2[i]);
+      const n2 = (c2[i] = normalizeVNode(c2[i]));
       if (isSameVNodeType(n1, n2)) {
         // 相同类型的节点 => patch 复用
         patch(n1, n2, container);
@@ -378,7 +384,7 @@ export const createRenderer: CreateRenderer = (options) => {
     // d e (b c)
     while (e1 >= i && e2 >= i) {
       const n1 = c1[e1];
-      const n2 = normalizeVNode(c2[e2]);
+      const n2 = (c2[i] = normalizeVNode(c2[e2]));
       if (isSameVNodeType(n1, n2)) {
         patch(n1, n2, container);
         e1--;
@@ -401,7 +407,7 @@ export const createRenderer: CreateRenderer = (options) => {
         const nextPos = e2 + 1;
         const anchor =
           nextPos < c2.length ? normalizeVNode(c2[nextPos]).el : null;
-        const n2 = normalizeVNode(c2[e2]);
+        const n2 = (c2[i] = normalizeVNode(c2[e2]));
         patch(null, n2, container, anchor);
         i++;
       }
@@ -430,7 +436,7 @@ export const createRenderer: CreateRenderer = (options) => {
       // {e => 2, c => 3, d => 4, i => 5, h => 6}
       const keyToNewIndexMap = new Map<any, number>();
       for (i = s2; i <= e2; i++) {
-        const nextChild = normalizeVNode(c2[i]);
+        const nextChild = (c2[i] = normalizeVNode(c2[i]));
         keyToNewIndexMap.set(nextChild.key, i);
       }
       // 新节点是否需要移动
@@ -472,7 +478,7 @@ export const createRenderer: CreateRenderer = (options) => {
             moved = true;
           }
           newIndexToOldIndexMap[newIndex - s2] = i + 1;
-          patch(prevChild, normalizeVNode(c2[newIndex]), container);
+          patch(prevChild, c2[newIndex] as VNode, container);
           patched++;
         }
       }
@@ -483,18 +489,18 @@ export const createRenderer: CreateRenderer = (options) => {
       // 从后往前插入
       for (i = toBePatched - 1; i >= 0; i--) {
         const nextIndex = i + s2;
-        const nextChild = c2[nextIndex];
+        const nextChild = c2[nextIndex] as VNode;
         const anchor =
-          nextIndex + 1 < l2 ? normalizeVNode(c2[nextIndex + 1]).el : null;
+          nextIndex + 1 < l2 ? (c2[nextIndex + 1] as VNode).el : null;
         // 挂载新节点
         if (newIndexToOldIndexMap[i] === 0) {
-          patch(null, nextChild as VNode, container, anchor);
+          patch(null, nextChild, container, anchor);
         }
         // 需要移动
         else if (moved) {
           if (i !== sequence[j]) {
             // 需要移动
-            hostInsert((nextChild as VNode).el as Element, container, anchor);
+            hostInsert(nextChild.el as Element, container, anchor);
           } else {
             // 不需要移动
             j--;
@@ -534,7 +540,7 @@ export const createRenderer: CreateRenderer = (options) => {
   const mountChildren = (children: VNodeChildAtom[], container: Element) => {
     for (let i = 0; i < children.length; i++) {
       // 子节点可能是 VNode | string，统一包装成VNode
-      const child = normalizeVNode(children[i]);
+      const child = (children[i] = normalizeVNode(children[i]));
       patch(null, child, container);
     }
   };

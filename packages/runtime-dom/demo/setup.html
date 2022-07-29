@@ -18,39 +18,41 @@
         setup(props) {
           const { address } = props;
           const age = ref(18);
-          return {
-            age,
-          };
-          // return () =>
-          //   h(Fragment, [
-          //     address,
-          //     age.value,
-          //     h(
-          //       "button",
-          //       {
-          //         onClick: () => {
-          //           age.value++;
-          //         },
-          //       },
-          //       "age ++"
-          //     ),
-          //   ]);
-        },
-        render() {
-          return h(Fragment, [
-            this.address,
-            this.age,
-            h(
-              "button",
-              {
-                onClick: () => {
-                  this.age++;
+          const age1 = ref(118);
+          // return {
+          //   age,
+          // };
+          return () =>
+            h(Fragment, [
+              address,
+              h("span", [age.value, age1.value]),
+              h(
+                "button",
+                {
+                  onClick: () => {
+                    age.value++;
+                    age1.value++;
+                  },
                 },
-              },
-              "age ++"
-            ),
-          ]);
+                "age ++"
+              ),
+            ]);
         },
+        // render() {
+        //   return h(Fragment, [
+        //     this.address,
+        //     this.age,
+        //     h(
+        //       "button",
+        //       {
+        //         onClick: () => {
+        //           this.age++;
+        //         },
+        //       },
+        //       "age ++"
+        //     ),
+        //   ]);
+        // },
       };
       debugger;
       vnode = h(VueComponent, { address: "深圳" });

@@ -25,6 +25,9 @@ export type VNode = {
   el: Element | Text | null;
   shapeFlag: number;
   patchFlag: number;
+  /**
+   * VNode是一个组件时,会保存组件实例
+   */
   component: ComponentInternalInstance | null;
 };
 
@@ -42,12 +45,27 @@ export const normalizeVNode = (vnode: VNode | string) => {
   }
 };
 
-export const normalizeChildren = (children: VNodeChildAtom[]) => {
-  for (let i = 0; i < children.length; i++) {
-    children[i] = normalizeVNode(children[i]);
+export const normalizeChildren = (vnode: VNode, children: VNodeChildren) => {
+  let type = 0;
+  if (isArray(children)) {
+    type = ShapeFlags.ARRAY_CHILDREN;
+  } else if (isObject(children)) {
+    type = ShapeFlags.SLOTS_CHILDREN;
+  } else {
+    children = String(children);
+    type = ShapeFlags.TEXT_CHILDREN;
   }
+  vnode.shapeFlag |= type;
+  vnode.children = children;
 };
 
+/**
+ * 创建虚拟节点
+ * @param type VNodeTypes
+ * @param props 属性
+ * @param children 子节点VNodeChildren
+ * @returns VNode
+ */
 export const createVNode = (
   type: VNodeTypes,
   props: Record<string, any> | null,
@@ -73,16 +91,7 @@ export const createVNode = (
   // 2. 数组
   // 2. 对象 => 插槽
   if (children) {
-    vnode.shapeFlag |= isString(children)
-      ? ShapeFlags.TEXT_CHILDREN
-      : isArray(children)
-      ? ShapeFlags.ARRAY_CHILDREN
-      : isObject(children)
-      ? ShapeFlags.SLOTS_CHILDREN
-      : ShapeFlags.ELEMENT;
-    if (vnode.shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      normalizeChildren(children as VNodeChildAtom[]);
-    }
+    normalizeChildren(vnode, children);
   }
   return vnode;
 };

@@ -1,5 +1,10 @@
 import { isObject } from "@vue/shared";
-import { ReactiveEffect, trackEffect, triggerEffect } from "./effect";
+import {
+  activeEffect,
+  ReactiveEffect,
+  trackEffect,
+  triggerEffect,
+} from "./effect";
 import { isReactive, reactive } from "./reactive";
 
 /**
@@ -20,6 +25,7 @@ class RefImpl {
   }
   get value() {
     // 收集依赖
+    console.log("Ref开始收集依赖");
     trackEffect(this.dep);
     return this._value;
   }
@@ -28,6 +34,7 @@ class RefImpl {
       this._value = toReactive(newValue);
       this._rawValue = newValue;
       // 触发effect
+      console.log("Ref开始触发Effect", this.dep);
       triggerEffect(this.dep);
     }
   }

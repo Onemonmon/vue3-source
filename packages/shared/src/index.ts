@@ -27,3 +27,4 @@ export const invokeArrayFns = (fns: Function[]) => {
 };
 
 export * from "./shapeFlags";
+export * from "./patchFlags";

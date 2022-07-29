@@ -13,9 +13,8 @@
     <script>
       const { compile } = VueCompilerCore;
       // const { compile } = Vue;
-      const str = `<div a="111" b='222'>哦
-
-    哦哦{{ aaa }}<div> {{ bbb }} </div></div> 123 `;
+      const str = `<div a="1" b="2">  aa {{ n }}</div> <span />`;
+      // const str = `<div a="1" b="2">  aa {{ n }} <span /></div>`;
       console.log(str);
       const r = compile(str);
     </script>

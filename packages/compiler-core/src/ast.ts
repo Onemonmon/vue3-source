@@ -31,3 +31,31 @@ export const enum NodeTypes {
   JS_SEQUENCE_EXPRESSION,
   JS_RETURN_STATEMENT,
 }
+
+export const createCallExpression = (callee: any, args: any[]) => {
+  return {
+    callee,
+    type: NodeTypes.JS_CALL_EXPRESSION,
+    arguments: args,
+  };
+};
+
+export const createObjectExpression = (properties: any) => {
+  return {
+    type: NodeTypes.JS_OBJECT_EXPRESSION,
+    properties,
+  };
+};
+
+export const createVNodeCall = (
+  tag: any,
+  propsExpression: any,
+  children: any[]
+) => {
+  return {
+    type: NodeTypes.VNODE_CALL,
+    tag,
+    props: propsExpression,
+    children,
+  };
+};

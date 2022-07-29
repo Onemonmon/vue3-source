@@ -16,6 +16,13 @@ export type SourceLocation = {
   source: string;
 };
 
+export type Node = {
+  type: NodeTypes;
+  loc: SourceLocation;
+  children: any[];
+  [x: string]: any;
+};
+
 // 创建根节点
 const createRoot = (children: any[], loc: SourceLocation) => {
   return {
@@ -60,6 +67,9 @@ const parseChildren = (context: ParserContext) => {
 const parseElement = (context: ParserContext) => {
   // 解析标签 <div   name="a" disabled></div>  <br />
   const element: any = parseTag(context);
+  if (element.isSelfClosing) {
+    return element;
+  }
   // 处理元素的children
   const children = parseChildren(context);
   element.children = children;
@@ -93,6 +103,7 @@ const parseTag = (context: ParserContext) => {
     tag,
     props,
     isSelfClosing,
+    children: [],
     loc: getSelection(context, start),
   };
 };

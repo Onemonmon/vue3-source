@@ -147,6 +147,7 @@ export const setupComponent = (instance: ComponentInternalInstance) => {
     const setupContext = createSetupContext(instance);
     // 设置当前实例 供生命周期使用
     setCurrentInstance(instance);
+    // 执行setup
     const setupResult = setup(
       instance.props as Record<string, any>,
       setupContext

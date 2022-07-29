@@ -19,6 +19,12 @@ h('div', {}, 'foo') // text
 h('div', {}, h('br')) // vnode
 */
 
+/**
+ * @param type Component Tag Fragment Text...
+ * @param propsOrChildren 属性或children
+ * @param children
+ * @returns VNode
+ */
 export function h(type: any, propsOrChildren?: any, children?: any) {
   const l = arguments.length;
   // type + props || type + children
