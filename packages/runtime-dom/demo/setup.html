@@ -18,20 +18,18 @@
         setup(props) {
           const { address } = props;
           const age = ref(18);
-          const age1 = ref(118);
           // return {
           //   age,
           // };
           return () =>
-            h(Fragment, [
+            h("div", [
               address,
-              h("span", [age.value, age1.value]),
+              h("span", [age.value]),
               h(
                 "button",
                 {
                   onClick: () => {
                     age.value++;
-                    age1.value++;
                   },
                 },
                 "age ++"

@@ -1,4 +1,4 @@
-import { isObject } from "@vue/shared";
+import { isObject, log } from "@vue/shared";
 import {
   activeEffect,
   ReactiveEffect,
@@ -7,6 +7,7 @@ import {
 } from "./effect";
 import { isReactive, reactive } from "./reactive";
 
+let logHide: boolean = false;
 /**
  * 将对象变成响应式
  */
@@ -24,17 +25,15 @@ class RefImpl {
     this._value = toReactive(_rawValue);
   }
   get value() {
-    // 收集依赖
-    console.log("Ref开始收集依赖");
     trackEffect(this.dep);
+    log(logHide, this, "开始收集依赖...", this.dep);
     return this._value;
   }
   set value(newValue) {
     if (newValue !== this._rawValue) {
       this._value = toReactive(newValue);
       this._rawValue = newValue;
-      // 触发effect
-      console.log("Ref开始触发Effect", this.dep);
+      log(logHide, this, "开始触发依赖...", this.dep);
       triggerEffect(this.dep);
     }
   }

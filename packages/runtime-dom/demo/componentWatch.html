@@ -11,19 +11,30 @@
     <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
     <script src="../dist/runtime-dom.global.js"></script>
     <script>
-      const { h, render, Text, Fragment, ref } = VueRuntimeDOM;
+      const { h, render, watch, Fragment, ref } = VueRuntimeDOM;
       let vnode;
       const MyComponent = {
         name: "MyComponent",
         props: { flag: Boolean },
         setup(props) {
-          return () => h("span", props.flag ? "地球" : "月球");
+          const loc = ref("地球");
+          watch(
+            () => props.flag,
+            (val) => {
+              loc.value = val ? "月球" : "地球";
+            }
+          );
+          return () => h("span", loc.value);
         },
       };
       const VueComponent = {
         name: "VueComponent",
         setup() {
           const flag = ref(false);
+          const loc = ref("地球");
+          watch(flag, (val) => {
+            loc.value = val ? "月球" : "地球";
+          });
           return () =>
             h(Fragment, [
               h(MyComponent, { flag: flag.value }),
@@ -36,6 +47,7 @@
                 },
                 "切换渲染"
               ),
+              loc.value,
             ]);
         },
       };

@@ -1,4 +1,8 @@
+import { log } from "@vue/shared";
+
 export let activeEffect: ReactiveEffect | undefined = undefined;
+
+let logHide: boolean = false;
 
 /**
  * cleanupEffect 清楚effect收集的依赖
@@ -39,7 +43,7 @@ export class ReactiveEffect {
       this.parent = activeEffect;
       // 暴露全局的当前被激活的effect
       activeEffect = this;
-      // 需要清理之前收集的依赖
+      // 执行fn之前需要清理收集的依赖，然后重新收集
       cleanupEffect(this);
       return this.fn();
     } finally {
@@ -124,6 +128,7 @@ export function trackEffect(dep: Set<ReactiveEffect>) {
   // 一个effect里用了多次同一个属性,手动去重(性能)
   const shouldTrack = !dep.has(activeEffect);
   if (shouldTrack) {
+    log(logHide, "开始收集依赖...");
     // 属性记录关联的effect
     dep.add(activeEffect);
     // effect记录依赖的属性 => 清理effect
@@ -147,10 +152,13 @@ export function trigger(target: Record<string, any>, key: string | symbol) {
     return;
   }
   const effects = depsMap.get(key);
-  effects && triggerEffect(effects);
+  if (effects) {
+    triggerEffect(effects);
+  }
 }
 
 export function triggerEffect(effects: Set<ReactiveEffect>) {
+  log(logHide, "开始触发依赖...");
   [...effects].forEach((effect) => {
     // 当 effect 中存在修改依赖的属性的代码时,会无限调用 effect,需要屏蔽后续的 effect
     if (effect !== activeEffect) {

@@ -1,6 +1,7 @@
-import { isFunction } from "@vue/shared";
+import { isFunction, log } from "@vue/shared";
 import { ReactiveEffect, trackEffect, triggerEffect } from "./effect";
 
+let logHide = true;
 class ComputedRefImpl {
   private effect: ReactiveEffect;
   private _dirty: boolean = true; // 缓存标识
@@ -13,6 +14,7 @@ class ComputedRefImpl {
     this.effect = new ReactiveEffect(getter, () => {
       // 依赖改变后会进入调度器
       if (!this._dirty) {
+        log(logHide, "computed内部依赖的值改变，开始触发computed的依赖");
         this._dirty = true;
         // 需要触发依赖该computed的effect
         triggerEffect(this.dep);
@@ -20,6 +22,7 @@ class ComputedRefImpl {
     });
   }
   get value() {
+    log(logHide, "获取computed.value，开始收集computed的依赖");
     // 需要收集依赖该computed的effect
     trackEffect(this.dep);
     if (this._dirty) {
@@ -42,7 +45,7 @@ export function computed(params: any) {
   if (onlyGetter) {
     getter = params;
     setter = () => {
-      console.log("no setter");
+      log(logHide, "no setter");
     };
   } else {
     getter = params.get;

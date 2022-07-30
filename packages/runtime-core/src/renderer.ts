@@ -1,7 +1,14 @@
 import { ReactiveEffect } from "@vue/reactivity";
-import { EMPTY_OBJ, invokeArrayFns, isArray, ShapeFlags } from "@vue/shared";
-import { queueJob } from "./scheduler";
 import {
+  EMPTY_OBJ,
+  invokeArrayFns,
+  isArray,
+  log,
+  ShapeFlags,
+} from "@vue/shared";
+import { flushPreFlushCbs, queueJob } from "./scheduler";
+import {
+  Component,
   ComponentInternalInstance,
   createComponentInstance,
   setupComponent,
@@ -95,8 +102,11 @@ export const createRenderer: CreateRenderer = (options) => {
     n1: VNode | null,
     n2: VNode,
     container: Element,
-    anchor: Element | Text | null = null
+    anchor: Element | Text | null = null,
+    logHide: boolean = false
   ) => {
+    log(logHide, "\n开始执行patch...");
+    log(logHide, "老节点为：", n1, "，新节点为：", n2);
     if (n1 === n2) return;
     // 如果元素类型不同，直接卸载旧元素，挂载新元素
     if (n1 && !isSameVNodeType(n1, n2)) {
@@ -151,7 +161,8 @@ export const createRenderer: CreateRenderer = (options) => {
   };
 
   // 更新组件props
-  const updateComponent = (n1: VNode, n2: VNode) => {
+  const updateComponent = (n1: VNode, n2: VNode, logHide: boolean = false) => {
+    log(logHide, "\n开始执行updateComponent更新组件...");
     // 对于元素复用的是dom节点，组件复用的是实例
     const instance = (n2.component = n1.component) as ComponentInternalInstance;
     // 判断组件是否需要更新
@@ -169,92 +180,140 @@ export const createRenderer: CreateRenderer = (options) => {
   ) => {
     instance.vnode = nextVNode;
     instance.next = null;
+    // 更新组件属性
     updateProps(nextVNode.props, instance.props as Record<string, any>);
+    // 组件属性更新可能会触发pre-flush watchers
+    flushPreFlushCbs();
   };
 
   const setupRenderEffect = (
     instance: ComponentInternalInstance,
-    container: Element
+    initialVNode: VNode,
+    container: Element,
+    logHide: boolean = false
   ) => {
-    // 组件 挂载 & 更新
+    // 组件挂载&更新，组件内部state改变时，会直接进来这里
     const componentUpdateFn = () => {
-      debugger;
-      const { render, proxy } = instance;
+      // 挂载
       if (!instance.isMounted) {
-        const { bm, m } = instance;
-        // 挂载
+        const { bm, m, render, proxy, vnode } = instance;
+        const componentName = (vnode.type as Component).name;
+        log(logHide, "开始执行componentUpdateFn挂载组件", componentName);
         // 触发onBeforeMount注册的hooks
         if (bm) {
           invokeArrayFns(bm);
         }
-        console.log("组件开始执行render");
-        // 在这里调用render时，开始收集render中响应式变量的依赖
-        const subTree = render && render.call(proxy);
-        console.log("获取要挂载的虚拟节点，开始进行patch", subTree);
+        log(logHide, "开始执行render并收集依赖...");
+        const subTree = (instance.subTree = render && render.call(proxy));
+        log(logHide, "render执行完毕，获取要挂载的虚拟节点，开始进行patch...");
         patch(null, subTree as VNode, container);
-        instance.subTree = subTree;
+        initialVNode.el = subTree.el;
         instance.isMounted = true;
         // 触发onMounted注册的hooks
         if (m) {
           invokeArrayFns(m);
         }
-      } else {
-        // 更新
-        const { next, bu, u } = instance;
+        log(logHide, componentName, "组件完成挂载", instance);
+      }
+      // 更新
+      else {
+        let { next, bu, u, vnode, render, proxy } = instance;
+        const componentName = (vnode.type as Component).name;
         if (next) {
+          log(
+            logHide,
+            componentName,
+            "组件接收的props改变，开始执行componentUpdateFn更新组件..."
+          );
           // 更新组件的属性
           updateComponentPreRender(instance, next);
+        } else {
+          log(
+            logHide,
+            componentName,
+            "组件内部state改变，开始执行componentUpdateFn更新组件..."
+          );
+          next = vnode;
         }
         // 触发onBeforeUpdate注册的hooks
         if (bu) {
           invokeArrayFns(bu);
         }
-        console.log("组件开始执行render");
+        log(logHide, "执行render并收集依赖...");
         const nextTree = render && render.call(proxy);
-        console.log("获取要更新的虚拟节点，开始进行patch", nextTree);
         const prevTree = instance.subTree;
         instance.subTree = nextTree;
+        log(logHide, "render执行完毕，获取要更新的虚拟节点，开始进行patch...");
         patch(prevTree, nextTree as VNode, container);
+        next.el = nextTree.el;
         // 触发onUpdated注册的hooks
         if (u) {
           invokeArrayFns(u);
         }
+        log(logHide, componentName, "组件完成更新", instance);
       }
     };
+    log(
+      logHide,
+      "开始执行setupRenderEffect为组件创建副作用，并执行update对组件进行挂载"
+    );
+    // 触发effect会执行调度函数
     const effect = new ReactiveEffect(componentUpdateFn, () =>
       queueJob(update)
     );
     const update = (instance.update = () => effect.run());
+    // 先执行一次componentUpdateFn，会进行依赖收集
     update();
   };
 
   // 挂载组件
-  const mountComponent = (vnode: VNode, container: Element) => {
+  const mountComponent = (
+    vnode: VNode,
+    container: Element,
+    logHide: boolean = false
+  ) => {
+    const componentName = (vnode.type as Component).name;
+    log(logHide, "\n开始执行mountComponent准备挂载组件", componentName, "...");
     // 1. 创建组件实例
     const instance = (vnode.component = createComponentInstance(vnode));
-    // 2. 为组件实例赋值
+    log(logHide, "开始执行createComponentInstance初始化组件实例");
+    // 2. 为组件实例赋值，调用setup
     setupComponent(instance);
     // 3. 创建effect
-    setupRenderEffect(instance, container);
+    setupRenderEffect(instance, vnode, container);
   };
 
   // 处理文本节点
-  const processText = (n1: VNode | null, n2: VNode, container: Element) => {
+  const processText = (
+    n1: VNode | null,
+    n2: VNode,
+    container: Element,
+    logHide: boolean = false
+  ) => {
+    log(logHide, logHide, "\n开始执行processText处理文本...");
     if (n1 === null) {
       // 挂载
       const el = (n2.el = hostCreateText(n2.children as string));
       hostInsert(el, container, null);
+      log(logHide, "文本创建完成", el);
     } else {
       // 更新，复用节点，直接修改文本
       const el = (n2.el = n1.el as Element);
       if (n1.children !== n2.children) {
         hostSetText(el, n2.children as string);
+        log(logHide, "文本更新完成", el);
       }
     }
   };
 
   // 处理Fragment Fragment的children只能是数组
-  const processFragment = (n1: VNode | null, n2: VNode, container: Element) => {
+  const processFragment = (
+    n1: VNode | null,
+    n2: VNode,
+    container: Element,
+    logHide: boolean = false
+  ) => {
+    log(logHide, "\n开始执行processFragment处理Fragment...");
     if (n1 === null) {
       if (!isArray(n2.children)) {
         return;
@@ -281,7 +340,9 @@ export const createRenderer: CreateRenderer = (options) => {
   };
 
   // 复用节点 比较元素属性、children
-  const patchElement = (n1: VNode, n2: VNode) => {
+  const patchElement = (n1: VNode, n2: VNode, logHide: boolean = false) => {
+    log(logHide, "开始执行patchElement更新元素...");
+    log(logHide, "老元素：", n1, "新元素：", n2);
     // 复用节点
     const el = (n2.el = n1.el as Element);
     const oldProps = n1.props || EMPTY_OBJ;
@@ -290,10 +351,23 @@ export const createRenderer: CreateRenderer = (options) => {
     patchProps(el, oldProps, newProps);
     // 比较children
     patchChildren(n1, n2, el);
+    log(logHide, "元素更新完成", el);
   };
 
-  const patchProps = (el: Element, oldProps: any, newProps: any) => {
+  const patchProps = (
+    el: Element,
+    oldProps: any,
+    newProps: any,
+    logHide: boolean = false
+  ) => {
     if (newProps !== oldProps) {
+      log(
+        logHide,
+        "开始比较元素的属性，老属性：",
+        oldProps,
+        "，新属性：",
+        newProps
+      );
       // 添加新属性
       if (newProps !== EMPTY_OBJ) {
         for (let key in newProps) {
@@ -311,7 +385,12 @@ export const createRenderer: CreateRenderer = (options) => {
     }
   };
 
-  const patchChildren = (n1: VNode, n2: VNode, container: Element) => {
+  const patchChildren = (
+    n1: VNode,
+    n2: VNode,
+    container: Element,
+    logHide: boolean = false
+  ) => {
     // 新     旧
     // 文本   数组     卸载数组，设置文本
     // 文本   文本     设置文本
@@ -324,6 +403,8 @@ export const createRenderer: CreateRenderer = (options) => {
     // 空     空       NODO
     const c1 = n1.children;
     const c2 = n2.children;
+    log(logHide, "开始执行patchChildren比较子节点...");
+    log(logHide, "老子节点：", c1, "新子节点：：", c2);
     const { shapeFlag: prevShapFlag } = n1;
     const { shapeFlag } = n2;
     // 新 = 文本 | 空
@@ -514,8 +595,10 @@ export const createRenderer: CreateRenderer = (options) => {
   const mountElement = (
     vnode: VNode,
     container: Element,
-    anchor: Element | Text | null = null
+    anchor: Element | Text | null = null,
+    logHide: boolean = false
   ) => {
+    log(logHide, "开始执行mountElement挂载元素：", vnode);
     const { props, shapeFlag, children } = vnode;
     const el = (vnode.el = hostCreateElement(vnode.type as string));
     // 创建子节点
@@ -534,10 +617,16 @@ export const createRenderer: CreateRenderer = (options) => {
     }
     // 插入
     hostInsert(el, container, anchor);
+    log(logHide, "元素挂载完成", el);
   };
 
   // 挂载子节点（数组）
-  const mountChildren = (children: VNodeChildAtom[], container: Element) => {
+  const mountChildren = (
+    children: VNodeChildAtom[],
+    container: Element,
+    logHide: boolean = false
+  ) => {
+    log(logHide, "开始执行mountChildren循环调用patch挂载子节点...", children);
     for (let i = 0; i < children.length; i++) {
       // 子节点可能是 VNode | string，统一包装成VNode
       const child = (children[i] = normalizeVNode(children[i]));
@@ -546,7 +635,12 @@ export const createRenderer: CreateRenderer = (options) => {
   };
 
   // 渲染函数
-  const render: RootRenderFunction = (vnode, container) => {
+  const render: RootRenderFunction = (
+    vnode,
+    container,
+    logHide: boolean = false
+  ) => {
+    log(logHide, "开始执行渲染器的render函数...");
     if (vnode === null) {
       // 卸载
       if (container._vnode) {
@@ -631,4 +725,4 @@ function getSequence(arr: number[]) {
 // 2 5 6 11 [1, 4, 5, 6] [-1, -1, 1, 2, 1, 4, 5]
 // 2 5 6 11 12 [1, 4, 5, 6, 7] [-1, -1, 1, 2, 1, 4, 5, 6]
 // 2 4 6 11 12 [1, 8, 5, 6, 7] [-1, -1, 1, 2, 1, 4, 5, 6, 1]
-// console.log(getSequence([3, 2, 8, 9, 5, 6, 11, 12, 4]));
+// log(logHide, getSequence([3, 2, 8, 9, 5, 6, 11, 12, 4]));

@@ -1,5 +1,5 @@
 import { proxyRef, reactive } from "@vue/reactivity";
-import { hasOwn, isFunction, isObject } from "@vue/shared";
+import { hasOwn, isFunction, isObject, log } from "@vue/shared";
 import { emit } from "./componentEmits";
 import { initProps } from "./componentProps";
 import { initSlots, RawSlots } from "./componentSlots";
@@ -132,18 +132,24 @@ const PublicInstanceProxyHandlers: ProxyHandler<any> = {
 };
 
 // 为组件实例赋值
-export const setupComponent = (instance: ComponentInternalInstance) => {
+export const setupComponent = (
+  instance: ComponentInternalInstance,
+  logHide: boolean = false
+) => {
+  log(logHide, "开始执行setupComponent构造组件实例的内容");
   const { props, type, children } = instance.vnode;
-  // 创建属性
+  log(logHide, "开始初始化组件属性：", props);
   initProps(instance, props);
-  // 创建插槽
+  log(logHide, "开始初始化组件插槽：", children);
   initSlots(instance, children);
   // 为组件实例创建代理对象
   instance.proxy = new Proxy(instance, PublicInstanceProxyHandlers);
+  log(logHide, "为组件实例创建代理对象：", instance.proxy);
   // 将data变成响应式
   const { data = () => ({}), setup } = type as Component;
   instance.data = reactive(data.call(instance.proxy));
   if (setup) {
+    log(logHide, "开始创建setup上下文setupContext");
     const setupContext = createSetupContext(instance);
     // 设置当前实例 供生命周期使用
     setCurrentInstance(instance);
@@ -152,21 +158,24 @@ export const setupComponent = (instance: ComponentInternalInstance) => {
       instance.props as Record<string, any>,
       setupContext
     );
+    log(logHide, "开始执行setup，并获得其返回值");
     unsetCurrentInstance();
     handleSetupResult(instance, setupResult);
   }
   finishComponentSetup(instance);
+  log(logHide, "组件实例构造完成：", instance);
 };
 
 export const handleSetupResult = (
   instance: ComponentInternalInstance,
-  setupResult: unknown
+  setupResult: unknown,
+  logHide: boolean = false
 ) => {
   if (isFunction(setupResult)) {
-    // 返回的是render函数
+    log(logHide, "setup返回的是render函数，直接将其设为组件实例的render函数");
     instance.render = setupResult as InternalRenderFunction;
   } else if (isObject(setupResult)) {
-    // 返回的是state数据
+    log(logHide, "setup返回的是state数据，将数据进行脱ref处理");
     instance.setupState = proxyRef(setupResult as object);
   }
 };

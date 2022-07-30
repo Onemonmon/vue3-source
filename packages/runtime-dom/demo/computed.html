@@ -11,13 +11,14 @@
     <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
     <script src="../dist/runtime-dom.global.js"></script>
     <script>
-      const { h, render, Text, Fragment, ref } = VueRuntimeDOM;
+      const { h, render, computed, Fragment, ref } = VueRuntimeDOM;
       let vnode;
       const MyComponent = {
         name: "MyComponent",
         props: { flag: Boolean },
         setup(props) {
-          return () => h("span", props.flag ? "地球" : "月球");
+          const loc = computed(() => (props.flag ? "地球" : "月球"));
+          return () => h("span", loc.value);
         },
       };
       const VueComponent = {

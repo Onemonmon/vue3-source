@@ -1,12 +1,16 @@
-import { isObject } from "@vue/shared";
+import { isObject, log } from "@vue/shared";
 import { reactive } from "./reactive";
 import { track, trigger } from "./effect";
 
 export const enum ReactiveFlags {
+  SKIP = "__v_skip",
+  IS_READONLY = "__v_isReadonly",
+  IS_SHALLOW = "__v_isShallow",
   IS_REACTIVE = "__v_isReactive", // 判断对象是否被代理过（是否为响应式）
   RAW = "__v_raw",
 }
 
+let logHide: boolean = false;
 const createGetter = (isReadonly = false, shallow = false) => {
   const getter: (
     target: Record<string | symbol, any>,
@@ -24,12 +28,16 @@ const createGetter = (isReadonly = false, shallow = false) => {
      * }
      * 而使用 Reflect.get 会将 this 指定为 receiver（Proxy 对象），因此 this.b 就会继续触发 Proxy.get
      */
-    console.log("get key: ", key);
+
+    // isReactive函数判断对象是否是响应式，会进来这里
     if (key === ReactiveFlags.IS_REACTIVE) {
-      return true;
-    } else if (key === ReactiveFlags.RAW) {
+      return !isReadonly;
+    }
+    // toRaw函数返回原对象，会进来这里
+    else if (key === ReactiveFlags.RAW) {
       return target;
     }
+    log(logHide, "reactive getter ", target, key);
     const res = Reflect.get(target, key, receiver);
     // 收集依赖
     if (!isReadonly) {
@@ -54,7 +62,7 @@ const createSetter = (shallow = false) => {
     value: any,
     receiver: any
   ) => boolean = (target, key, value, receiver) => {
-    console.log("set key: ", key, " to ", value);
+    log(logHide, "reactive set key: ", key, " to ", value);
     // 修改值后要执行key对应的effect
     const oldValue = target[key];
     const result = Reflect.set(target, key, value, receiver);

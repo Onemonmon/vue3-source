@@ -18,6 +18,7 @@ export type VNodeChildren = VNodeChildAtom[] | string | RawSlots | null;
 
 export type VNode = {
   __v_isVNode: true;
+  __v_skip: true;
   type: VNodeTypes;
   props: Record<string, any> | null;
   key: string | number | symbol | null;
@@ -73,6 +74,7 @@ export const createVNode = (
 ) => {
   const vnode: VNode = {
     __v_isVNode: true,
+    __v_skip: true,
     type,
     props,
     children,
