@@ -20,6 +20,7 @@ h('div', {}, h('br')) // vnode
 */
 
 /**
+ * 当type为Component时，其children是插槽
  * @param type Component Tag Fragment Text...
  * @param propsOrChildren 属性或children
  * @param children

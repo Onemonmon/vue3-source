@@ -11,39 +11,46 @@
     <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
     <script src="../dist/runtime-dom.global.js"></script>
     <script>
-      const { h, render, watch, Fragment, ref, computed } = VueRuntimeDOM;
+      const { h, render, ref, Fragment } = VueRuntimeDOM;
       let vnode;
+
       const MyComponent = {
         name: "MyComponent",
-        props: { flag: Boolean },
-        setup(props) {
-          const loc = computed(() => (props.flag ? "地球" : "月球"));
-          watch(loc, (val) => {
-            console.log("位置信息改变，", val);
-          });
-          return () => h("span", loc.value);
+        props: { modelValue: Number },
+        setup(props, { emit }) {
+          return () =>
+            h("input", {
+              value: props.modelValue,
+              onInput(e) {
+                emit("update:modelValue", e.target.value);
+              },
+            });
         },
       };
       const VueComponent = {
-        name: "VueComponent",
-        setup() {
-          const flag = ref(false);
+        setup(props, { emit }) {
+          const age = ref(18);
           return () =>
             h(Fragment, [
-              h(MyComponent, { flag: flag.value }),
+              age.value,
+              h(MyComponent, {
+                modelValue: age.value,
+                "onUpdate:modelValue": (val) => {
+                  age.value = val;
+                },
+              }),
               h(
                 "button",
                 {
                   onClick: () => {
-                    flag.value = !flag.value;
+                    age.value++;
                   },
                 },
-                "切换渲染"
+                "age ++"
               ),
             ]);
         },
       };
-      debugger;
       vnode = h(VueComponent);
       render(vnode, document.getElementById("app"));
     </script>

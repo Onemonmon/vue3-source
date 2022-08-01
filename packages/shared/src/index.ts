@@ -10,6 +10,14 @@ export const isFunction = (target: any) => typeof target === "function";
 
 export const isString = (target: any) => typeof target === "string";
 
+export const isSymbol = (target: any) => typeof target === "symbol";
+
+export const isIntegerKey = (key: any) =>
+  isString(key) &&
+  key !== "NaN" &&
+  key[0] !== "-" &&
+  "" + parseInt(key, 10) === key;
+
 const onReg = /^on[^a-z]/;
 // 是否是事件名称
 export const isOn = (key: string) => onReg.test(key);

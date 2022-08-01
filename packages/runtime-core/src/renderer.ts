@@ -6,7 +6,12 @@ import {
   log,
   ShapeFlags,
 } from "@vue/shared";
-import { flushPreFlushCbs, queueJob } from "./scheduler";
+import {
+  flushPreFlushCbs,
+  invalidateJob,
+  queueJob,
+  SchedulerJob,
+} from "./scheduler";
 import {
   Component,
   ComponentInternalInstance,
@@ -160,7 +165,7 @@ export const createRenderer: CreateRenderer = (options) => {
     return hasPropsChanged(prevProps, nextProps || {});
   };
 
-  // 更新组件props
+  // 更新组件，在组件的props发生改变时才会触发（注：如果属性是个对象，但只有对象里的某个属性改变时，不会触发这里，而是直接执行componentUpdateFn）
   const updateComponent = (n1: VNode, n2: VNode, logHide: boolean = false) => {
     log(logHide, "\n开始执行updateComponent更新组件...");
     // 对于元素复用的是dom节点，组件复用的是实例
@@ -169,8 +174,13 @@ export const createRenderer: CreateRenderer = (options) => {
     if (shouldUpdateComponent(n1, n2)) {
       // 将新的vnode放到实例的next属性
       instance.next = n2;
+      // 在更新父组件的时候可能会一起更新子组件，因此更新完父组件后，如果子组件也在queue里，则不需要执行
+      invalidateJob(instance.update!);
       // 需要更新，直接调用更新方法
       instance.update && instance.update();
+    } else {
+      n2.el = n1.el;
+      instance.vnode = n2;
     }
   };
 
@@ -182,6 +192,7 @@ export const createRenderer: CreateRenderer = (options) => {
     instance.next = null;
     // 更新组件属性
     updateProps(nextVNode.props, instance.props as Record<string, any>);
+    // 更新组件插槽
     // 组件属性更新可能会触发pre-flush watchers
     flushPreFlushCbs();
   };
@@ -231,7 +242,7 @@ export const createRenderer: CreateRenderer = (options) => {
           log(
             logHide,
             componentName,
-            "组件内部state改变，开始执行componentUpdateFn更新组件..."
+            "组件内部state改变，或则props中某个对象的属性改变，开始执行componentUpdateFn更新组件..."
           );
           next = vnode;
         }
@@ -261,7 +272,8 @@ export const createRenderer: CreateRenderer = (options) => {
     const effect = new ReactiveEffect(componentUpdateFn, () =>
       queueJob(update)
     );
-    const update = (instance.update = () => effect.run());
+    const update: SchedulerJob = (instance.update = () => effect.run());
+    update.id = instance.uid;
     // 先执行一次componentUpdateFn，会进行依赖收集
     update();
   };
@@ -290,7 +302,7 @@ export const createRenderer: CreateRenderer = (options) => {
     container: Element,
     logHide: boolean = false
   ) => {
-    log(logHide, logHide, "\n开始执行processText处理文本...");
+    log(logHide, "\n开始执行processText处理文本...");
     if (n1 === null) {
       // 挂载
       const el = (n2.el = hostCreateText(n2.children as string));

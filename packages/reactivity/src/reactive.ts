@@ -5,6 +5,19 @@ import {
   shallowReactiveHandlers,
 } from "./baseHandler";
 
+const enum TargetType {
+  INVALID = 0,
+  COMMON = 1,
+}
+
+// 获取对象的类型
+// 无效的对象类型：1.对象包含ReactiveFlags.SKIP属性 2.对象不可被扩展（不能添加属性）
+function getTargetType(value: any) {
+  return value[ReactiveFlags.SKIP] || !Object.isExtensible(value)
+    ? TargetType.INVALID
+    : TargetType.COMMON;
+}
+
 export const reactiveMap = new WeakMap();
 export const shallowReactiveMap = new WeakMap();
 /**
@@ -47,6 +60,11 @@ export const createReactiveObject = (
   const existingProxy = proxyMap.get(target);
   if (existingProxy) {
     return existingProxy;
+  }
+
+  // 不可代理的对象
+  if (getTargetType(target) === TargetType.INVALID) {
+    return target;
   }
 
   const proxy = new Proxy(target, baseHandlers);

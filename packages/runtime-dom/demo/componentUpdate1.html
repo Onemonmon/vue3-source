@@ -11,39 +11,48 @@
     <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
     <script src="../dist/runtime-dom.global.js"></script>
     <script>
-      const { h, render, watch, Fragment, ref, computed } = VueRuntimeDOM;
+      const { h, render, Text, Fragment, ref } = VueRuntimeDOM;
       let vnode;
       const MyComponent = {
         name: "MyComponent",
-        props: { flag: Boolean },
+        props: { info: Object, flag: Boolean },
         setup(props) {
-          const loc = computed(() => (props.flag ? "地球" : "月球"));
-          watch(loc, (val) => {
-            console.log("位置信息改变，", val);
-          });
-          return () => h("span", loc.value);
+          return () =>
+            h("span", [
+              props.info.name,
+              props.info.age,
+              props.flag ? "地球" : "月球",
+            ]);
         },
       };
+      // VueEffect
       const VueComponent = {
         name: "VueComponent",
         setup() {
+          const info = ref({ name: "张三", age: 18 });
           const flag = ref(false);
+          // 执行render开始收集依赖 info.dep = [VueEffect] flag.dep = [VueEffect]
           return () =>
             h(Fragment, [
-              h(MyComponent, { flag: flag.value }),
+              h(MyComponent, { info: info.value, flag: flag.value }),
               h(
                 "button",
                 {
                   onClick: () => {
+                    // 触发info.dep，执行VueEffect的调度函数queue(update)
+                    info.value = { name: "张三", age: 20 };
+                    // 触发flag.dep，执行VueEffect的调度函数queue(update)，但是update已存在，所以不会插入
                     flag.value = !flag.value;
+                    // 因此两次触发依赖，最终只执行了一次
+
+                    // info.value.age++;
                   },
                 },
-                "切换渲染"
+                "年龄增加"
               ),
             ]);
         },
       };
-      debugger;
       vnode = h(VueComponent);
       render(vnode, document.getElementById("app"));
     </script>

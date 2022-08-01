@@ -19,13 +19,13 @@
       };
       const state = reactive(data);
       const age = ref(10);
-      // watch(
-      //   state,
-      //   async (newVal, oldVal, ) => {
-      //     console.log("watch state", newVal, oldVal);
-      //   },
-      //   { flush: "sync" }
-      // );
+      watch(
+        state,
+        async (newVal, oldVal) => {
+          console.log("watch state", newVal, oldVal);
+        },
+        { flush: "sync" }
+      );
       // watch(
       //   age,
       //   async (newVal, oldVal) => {
@@ -40,17 +40,17 @@
       //   },
       //   { immediate: true }
       // );
-      watch(
-        [age, () => state.age, () => state.other.money],
-        async (newVal, oldVal) => {
-          console.log(
-            "watch age, state.age, state.other.money",
-            newVal,
-            oldVal
-          );
-        },
-        { immediate: true }
-      );
+      // watch(
+      //   [age, () => state.age, () => state.other.money],
+      //   async (newVal, oldVal) => {
+      //     console.log(
+      //       "watch age, state.age, state.other.money",
+      //       newVal,
+      //       oldVal
+      //     );
+      //   },
+      //   { immediate: true }
+      // );
       setTimeout(() => {
         age.value = 20;
         state.other.money = 200;

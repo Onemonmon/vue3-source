@@ -31,7 +31,7 @@ export const hasPropsChanged = (
   if (nextKeys.length !== Object.keys(prevProps).length) {
     return true;
   }
-  // 在比较值
+  // 再详细比较值
   for (let i = 0; i < nextKeys.length; i++) {
     const key = nextKeys[i];
     if (nextProps[key] !== prevProps[key]) {

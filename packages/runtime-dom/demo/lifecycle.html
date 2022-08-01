@@ -26,6 +26,7 @@
       } = VueRuntimeDOM;
       let vnode;
       const VueComponent = {
+        name: "VueComponent",
         props: { address: String },
         setup(props, { emit, slots }) {
           console.log("setup");
@@ -36,6 +37,9 @@
             setTimeout(() => {
               state.age++;
             }, 1000);
+          });
+          onMounted(() => {
+            console.log("onMounted");
           });
           onBeforeMount(() => {
             console.log("onBeforeMount");

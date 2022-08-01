@@ -1,6 +1,8 @@
-import { log } from "@vue/shared";
+import { isArray, isIntegerKey, log } from "@vue/shared";
 
 export let activeEffect: ReactiveEffect | undefined = undefined;
+
+type Dep = Set<ReactiveEffect>;
 
 let logHide: boolean = false;
 
@@ -21,7 +23,7 @@ function cleanupEffect(effect: ReactiveEffect) {
 export class ReactiveEffect {
   public active = true;
   public parent: ReactiveEffect | undefined = undefined; // 父级effect,解决effect嵌套
-  public deps: Set<ReactiveEffect>[] = []; // 记录依赖的属性
+  public deps: Dep[] = []; // 记录依赖的属性
   constructor(public fn: Function, public scheduler?: Function) {}
   run() {
     // 非激活状态,不需要进行依赖收集
@@ -95,7 +97,7 @@ export function effect(fn: Function, options: { scheduler?: Function } = {}) {
 
 const targetMap: WeakMap<
   Record<string, any>,
-  Map<string | symbol, Set<ReactiveEffect>>
+  Map<string | symbol, Dep>
 > = new WeakMap();
 /**
  * track 收集依赖的属性
@@ -121,7 +123,7 @@ export function track(target: Record<string, any>, key: string | symbol) {
   trackEffect(dep);
 }
 
-export function trackEffect(dep: Set<ReactiveEffect>) {
+export function trackEffect(dep: Dep) {
   if (!activeEffect) {
     return;
   }
@@ -144,22 +146,41 @@ export function trackEffect(dep: Set<ReactiveEffect>) {
  * @param value 值
  * @param oldValue 旧值
  */
-export function trigger(target: Record<string, any>, key: string | symbol) {
+export function trigger(
+  target: Record<string, any>,
+  key: string | symbol,
+  type?: string,
+  newValue?: any
+) {
   // 从 targetMap 中根据 target 找到对应的 depsMap
   const depsMap = targetMap.get(target);
   if (!depsMap) {
     // 当前的 target 没有再模板中使用
     return;
   }
-  const effects = depsMap.get(key);
-  if (effects) {
-    triggerEffect(effects);
+  let deps: (Dep | undefined)[] = [];
+  // 触发的key是数组的length
+  if (key === "length" && isArray(target)) {
+    deps.push(depsMap.get("length") as Dep);
+  } else {
+    if (key !== void 0) {
+      deps.push(depsMap.get(key));
+    }
+    if (type === "add" && isArray(target) && isIntegerKey(key)) {
+      // 数组添加数组时，触发length的依赖
+      deps.push(depsMap.get("length") as Dep);
+    }
   }
+  const effects: ReactiveEffect[] = [];
+  for (const dep of deps) {
+    dep && effects.push(...Array.from(dep));
+  }
+  triggerEffect(effects);
 }
 
-export function triggerEffect(effects: Set<ReactiveEffect>) {
+export function triggerEffect(effects: Dep | ReactiveEffect[]) {
   log(logHide, "开始触发依赖...");
-  [...effects].forEach((effect) => {
+  effects.forEach((effect) => {
     // 当 effect 中存在修改依赖的属性的代码时,会无限调用 effect,需要屏蔽后续的 effect
     if (effect !== activeEffect) {
       if (effect.scheduler) {

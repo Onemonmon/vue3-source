@@ -57,6 +57,7 @@ export function doWatch(
   let getter: () => any;
   // 是否监听数组
   let isMultiSource = false;
+  debugger;
   if (isRef(source)) {
     getter = () => source.value;
   } else if (isReactive(source)) {
@@ -81,9 +82,17 @@ export function doWatch(
   } else {
     return;
   }
+  const baseGetter = getter;
   if (cb && deep) {
-    const baseGetter = getter;
-    getter = () => traverse(baseGetter());
+    getter = () => {
+      log(logHide, "开始执行watch的getter函数...");
+      return traverse(baseGetter());
+    };
+  } else {
+    getter = () => {
+      log(logHide, "开始执行watch的getter函数...");
+      return baseGetter();
+    };
   }
   log(logHide, "\n执行watch函数，创建getter");
   let cleanup: Function;
@@ -96,9 +105,9 @@ export function doWatch(
       cleanup();
     }
     if (cb) {
-      log(logHide, "执行getter获取新值...");
+      log(logHide, "watch的值发生改变...");
       const newValue = effect.run();
-      log(logHide, "触发watch的回调函数...");
+      log(logHide, "开始调用watch的回调函数...");
       cb(
         newValue,
         oldValue === INITIAL_WATCHER_VALUE ? undefined : oldValue,

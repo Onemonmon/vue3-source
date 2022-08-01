@@ -1,5 +1,6 @@
 import { proxyRef, reactive } from "@vue/reactivity";
 import { hasOwn, isFunction, isObject, log } from "@vue/shared";
+import { SchedulerJob } from "vue";
 import { emit } from "./componentEmits";
 import { initProps } from "./componentProps";
 import { initSlots, RawSlots } from "./componentSlots";
@@ -14,7 +15,7 @@ export type Component = {
   render?: InternalRenderFunction;
   setup?: (
     props: Record<string, any>,
-    setupContext: SetupContext
+    setupContext?: SetupContext
   ) => object | InternalRenderFunction;
 };
 
@@ -35,6 +36,7 @@ export type SetupContext = {
 export type LifecycleHook<TFn = Function> = TFn[];
 
 export type ComponentInternalInstance = {
+  uid: number; // 用于更新的优化
   data: Record<string, any> | null; // 响应式数据
   setupState: Record<string, any> | null; // setup响应式数据
   vnode: VNode; // 组件对应的虚拟节点
@@ -42,7 +44,7 @@ export type ComponentInternalInstance = {
   next: VNode | null; // 组件更新后的虚拟节点
   subTree: VNode | null; // 渲染的组件内容对应的虚拟节点
   isMounted: boolean; // 是否已经挂载
-  update: Function | null; // 强制更新组件内容的方法
+  update: SchedulerJob | null; // 强制更新组件内容的方法
   propsOptions: Record<string, any> | null;
   props: Record<string, any> | null;
   attrs: Record<string, any> | null;
@@ -65,9 +67,12 @@ export const unsetCurrentInstance = () => (currentInstance = null);
 
 export const getCurrentInstance = () => currentInstance;
 
+let uid = 0;
+
 // 创建组件实例
 export const createComponentInstance = (vnode: VNode) => {
   const instance: ComponentInternalInstance = {
+    uid: uid++,
     data: null,
     setupState: null,
     vnode,
@@ -142,23 +147,24 @@ export const setupComponent = (
   initProps(instance, props);
   log(logHide, "开始初始化组件插槽：", children);
   initSlots(instance, children);
-  // 为组件实例创建代理对象
+  // 为组件实例创建代理对象，最终编译后都是通过_cxt.xxx获取数据，然后代理到具体的props或者state
   instance.proxy = new Proxy(instance, PublicInstanceProxyHandlers);
   log(logHide, "为组件实例创建代理对象：", instance.proxy);
   // 将data变成响应式
   const { data = () => ({}), setup } = type as Component;
   instance.data = reactive(data.call(instance.proxy));
   if (setup) {
-    log(logHide, "开始创建setup上下文setupContext");
-    const setupContext = createSetupContext(instance);
+    // 如果setup中用到了后面的参数，则创建setup上下文setupContext
+    const setupContext =
+      setup.length > 1 ? createSetupContext(instance) : undefined;
     // 设置当前实例 供生命周期使用
     setCurrentInstance(instance);
+    log(logHide, "开始执行setup", currentInstance);
     // 执行setup
     const setupResult = setup(
       instance.props as Record<string, any>,
       setupContext
     );
-    log(logHide, "开始执行setup，并获得其返回值");
     unsetCurrentInstance();
     handleSetupResult(instance, setupResult);
   }
