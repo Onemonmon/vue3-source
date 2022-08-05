@@ -1,30 +1,17 @@
 export const enum PatchFlags {
-  TEXT = 1,
-
-  CLASS = 1 << 1,
-
-  STYLE = 1 << 2,
-
-  PROPS = 1 << 3,
-
-  FULL_PROPS = 1 << 4,
-
+  TEXT = 1, // 动态文本节点
+  CLASS = 1 << 1, // 动态class
+  STYLE = 1 << 2, // 动态style
+  PROPS = 1 << 3, // 动态属性
+  FULL_PROPS = 1 << 4, // 节点带有key，需要全量比较props
   HYDRATE_EVENTS = 1 << 5,
-
-  STABLE_FRAGMENT = 1 << 6,
-
-  KEYED_FRAGMENT = 1 << 7,
-
-  UNKEYED_FRAGMENT = 1 << 8,
-
+  STABLE_FRAGMENT = 1 << 6, // 稳定序列的子节点（顺序不会改变）
+  KEYED_FRAGMENT = 1 << 7, // 子节点有key的Fragment
+  UNKEYED_FRAGMENT = 1 << 8, // 子节点没有key的Fragment
   NEED_PATCH = 1 << 9,
-
   DYNAMIC_SLOTS = 1 << 10,
-
   DEV_ROOT_FRAGMENT = 1 << 11,
-
-  HOISTED = -1,
-
+  HOISTED = -1, // 静态节点
   BAIL = -2,
 }
 

@@ -4,6 +4,7 @@ import {
   invokeArrayFns,
   isArray,
   log,
+  PatchFlags,
   ShapeFlags,
 } from "@vue/shared";
 import {
@@ -16,6 +17,7 @@ import {
   Component,
   ComponentInternalInstance,
   createComponentInstance,
+  renderComponentRoot,
   setupComponent,
 } from "./component";
 import {
@@ -27,6 +29,7 @@ import {
   normalizeVNode,
 } from "./vnode";
 import { hasPropsChanged, updateProps } from "./componentProps";
+import { invokeDirectiveHook } from "./directives";
 
 /**
  * 操作节点的方法
@@ -108,6 +111,7 @@ export const createRenderer: CreateRenderer = (options) => {
     n2: VNode,
     container: Element,
     anchor: Element | Text | null = null,
+    optimized: boolean = !!n2.dynamicChildren,
     logHide: boolean = false
   ) => {
     log(logHide, "\n开始执行patch...");
@@ -128,16 +132,16 @@ export const createRenderer: CreateRenderer = (options) => {
         break;
       // render(h(Fragment, ['lalala']), app)
       case Fragment:
-        processFragment(n1, n2, container);
+        processFragment(n1, n2, container, optimized);
         break;
       default:
         // render(h('div', 'lalala'), app)
         if (shapeFlag & ShapeFlags.ELEMENT) {
-          processElement(n1, n2, container, anchor);
+          processElement(n1, n2, container, anchor, optimized);
         }
         // render(h(VueComponent), app)
         else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-          processComponent(n1, n2, container);
+          processComponent(n1, n2, container, optimized);
         }
     }
   };
@@ -146,27 +150,38 @@ export const createRenderer: CreateRenderer = (options) => {
   const processComponent = (
     n1: VNode | null,
     n2: VNode,
-    container: Element
+    container: Element,
+    optimized: boolean
   ) => {
     if (n1 === null) {
-      mountComponent(n2, container);
+      mountComponent(n2, container, optimized);
     } else {
       // 组件更新更新的是props
-      updateComponent(n1, n2);
+      updateComponent(n1, n2, optimized);
     }
   };
 
   const shouldUpdateComponent = (n1: VNode, n2: VNode) => {
     const { props: prevProps, children: prevChildren } = n1;
-    const { props: nextProps, children: nextChildren } = n2;
-    if (prevProps === nextProps) return false;
+    const { props: nextProps, children: nextChildren, dirs: nextDirs } = n2;
+    // 有指令需要强制更新
+    if (nextDirs) {
+      return true;
+    }
+    // 有插槽需要更新
     if (prevChildren || nextChildren) return true;
+    if (prevProps === nextProps) return false;
     if (prevProps === null) return !!nextProps;
     return hasPropsChanged(prevProps, nextProps || {});
   };
 
   // 更新组件，在组件的props发生改变时才会触发（注：如果属性是个对象，但只有对象里的某个属性改变时，不会触发这里，而是直接执行componentUpdateFn）
-  const updateComponent = (n1: VNode, n2: VNode, logHide: boolean = false) => {
+  const updateComponent = (
+    n1: VNode,
+    n2: VNode,
+    optimized: boolean,
+    logHide: boolean = false
+  ) => {
     log(logHide, "\n开始执行updateComponent更新组件...");
     // 对于元素复用的是dom节点，组件复用的是实例
     const instance = (n2.component = n1.component) as ComponentInternalInstance;
@@ -207,7 +222,7 @@ export const createRenderer: CreateRenderer = (options) => {
     const componentUpdateFn = () => {
       // 挂载
       if (!instance.isMounted) {
-        const { bm, m, render, proxy, vnode } = instance;
+        const { bm, m, vnode } = instance;
         const componentName = (vnode.type as Component).name;
         log(logHide, "开始执行componentUpdateFn挂载组件", componentName);
         // 触发onBeforeMount注册的hooks
@@ -215,7 +230,7 @@ export const createRenderer: CreateRenderer = (options) => {
           invokeArrayFns(bm);
         }
         log(logHide, "开始执行render并收集依赖...");
-        const subTree = (instance.subTree = render && render.call(proxy));
+        const subTree = (instance.subTree = renderComponentRoot(instance));
         log(logHide, "render执行完毕，获取要挂载的虚拟节点，开始进行patch...");
         patch(null, subTree as VNode, container);
         initialVNode.el = subTree.el;
@@ -251,7 +266,7 @@ export const createRenderer: CreateRenderer = (options) => {
           invokeArrayFns(bu);
         }
         log(logHide, "执行render并收集依赖...");
-        const nextTree = render && render.call(proxy);
+        const nextTree = renderComponentRoot(instance);
         const prevTree = instance.subTree;
         instance.subTree = nextTree;
         log(logHide, "render执行完毕，获取要更新的虚拟节点，开始进行patch...");
@@ -282,6 +297,7 @@ export const createRenderer: CreateRenderer = (options) => {
   const mountComponent = (
     vnode: VNode,
     container: Element,
+    optimized: boolean,
     logHide: boolean = false
   ) => {
     const componentName = (vnode.type as Component).name;
@@ -323,6 +339,7 @@ export const createRenderer: CreateRenderer = (options) => {
     n1: VNode | null,
     n2: VNode,
     container: Element,
+    optimized: boolean,
     logHide: boolean = false
   ) => {
     log(logHide, "\n开始执行processFragment处理Fragment...");
@@ -330,9 +347,9 @@ export const createRenderer: CreateRenderer = (options) => {
       if (!isArray(n2.children)) {
         return;
       }
-      mountChildren(n2.children as VNodeChildAtom[], container);
+      mountChildren(n2.children as VNodeChildAtom[], container, optimized);
     } else {
-      patchChildren(n1, n2, container);
+      patchChildren(n1, n2, container, optimized);
     }
   };
 
@@ -341,28 +358,82 @@ export const createRenderer: CreateRenderer = (options) => {
     n1: VNode | null,
     n2: VNode,
     container: Element,
-    anchor: Element | Text | null = null
+    anchor: Element | Text | null = null,
+    optimized: boolean
   ) => {
     if (n1 === null) {
-      mountElement(n2, container, anchor);
+      mountElement(n2, container, anchor, optimized);
     } else {
       // 此时 n1 n2 isSameVNodeType
-      patchElement(n1, n2);
+      patchElement(n1, n2, optimized);
     }
   };
 
   // 复用节点 比较元素属性、children
-  const patchElement = (n1: VNode, n2: VNode, logHide: boolean = false) => {
+  const patchElement = (
+    n1: VNode,
+    n2: VNode,
+    optimized: boolean,
+    logHide: boolean = false
+  ) => {
     log(logHide, "开始执行patchElement更新元素...");
     log(logHide, "老元素：", n1, "新元素：", n2);
     // 复用节点
     const el = (n2.el = n1.el as Element);
+    const { dynamicChildren, dynamicProps, patchFlag, dirs } = n2;
     const oldProps = n1.props || EMPTY_OBJ;
     const newProps = n2.props || EMPTY_OBJ;
-    // 比较属性
-    patchProps(el, oldProps, newProps);
+    // 挂载beforeUpdate指令
+    if (dirs) {
+      invokeDirectiveHook(n2, n1, "beforeUpdate");
+    }
     // 比较children
-    patchChildren(n1, n2, el);
+    if (dynamicChildren) {
+      // 有dynamicChildren会进行靶向更新，但元素的子节点只有一个文本节点时，不会进这里，会走下面的单独更新
+      patchBlockChildren(n1.dynamicChildren!, dynamicChildren, el);
+    } else if (!optimized) {
+      // 全量更新
+      patchChildren(n1, n2, el, optimized);
+    }
+    if (patchFlag > 0) {
+      // 优化props
+      if (patchFlag & PatchFlags.FULL_PROPS) {
+        patchProps(el, oldProps, newProps);
+      } else {
+        if (patchFlag & PatchFlags.CLASS) {
+          if (oldProps.class !== newProps.class) {
+            hostPatchProp(el, "class", null, newProps.class);
+          }
+        }
+        if (patchFlag & PatchFlags.STYLE) {
+          hostPatchProp(el, "style", oldProps.style, newProps.style);
+        }
+        if (patchFlag & PatchFlags.PROPS) {
+          // 到了这个分支，dynamicProps必定有值
+          for (let i = 0; i < dynamicProps!.length; i++) {
+            const key = dynamicProps![i];
+            const prev = oldProps[key];
+            const next = newProps[key];
+            if (prev !== next) {
+              hostPatchProp(el, key, prev, next);
+            }
+          }
+        }
+      }
+      // 只有单个动态文本节点时，单独优化
+      if (patchFlag & PatchFlags.TEXT) {
+        if (n1.children !== n2.children) {
+          hostSetElementText(el, n2.children as string);
+        }
+      }
+    } else if (!optimized) {
+      // 全量比较属性
+      patchProps(el, oldProps, newProps);
+    }
+    // 挂载updated指令
+    if (dirs) {
+      invokeDirectiveHook(n2, n1, "updated");
+    }
     log(logHide, "元素更新完成", el);
   };
 
@@ -397,10 +468,23 @@ export const createRenderer: CreateRenderer = (options) => {
     }
   };
 
+  const patchBlockChildren = (
+    oldChildren: VNode[],
+    newChildren: VNode[],
+    container: Element
+  ) => {
+    for (let i = 0; i < newChildren.length; i++) {
+      const oldNode = oldChildren[i];
+      const newNode = newChildren[i];
+      patch(oldNode, newNode, container, null, true);
+    }
+  };
+
   const patchChildren = (
     n1: VNode,
     n2: VNode,
     container: Element,
+    optimized: boolean,
     logHide: boolean = false
   ) => {
     // 新     旧
@@ -443,7 +527,7 @@ export const createRenderer: CreateRenderer = (options) => {
           hostSetElementText(container, "");
         }
         // 挂载数组
-        mountChildren(c2 as VNodeChildAtom[], container);
+        mountChildren(c2 as VNodeChildAtom[], container, optimized);
       }
     }
   };
@@ -608,18 +692,22 @@ export const createRenderer: CreateRenderer = (options) => {
     vnode: VNode,
     container: Element,
     anchor: Element | Text | null = null,
+    optimized: boolean,
     logHide: boolean = false
   ) => {
     log(logHide, "开始执行mountElement挂载元素：", vnode);
-    const { props, shapeFlag, children } = vnode;
+    const { props, shapeFlag, children, dirs } = vnode;
     const el = (vnode.el = hostCreateElement(vnode.type as string));
     // 创建子节点
     if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
       // 子元素为数组
-      mountChildren(children as VNodeChildAtom[], el);
+      mountChildren(children as VNodeChildAtom[], el, optimized);
     } else if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       // 子元素为文本
       hostSetElementText(el, children as string);
+    }
+    if (dirs) {
+      invokeDirectiveHook(vnode, null, "created");
     }
     // 创建属性
     if (props) {
@@ -627,8 +715,16 @@ export const createRenderer: CreateRenderer = (options) => {
         hostPatchProp(el, key, null, props[key]);
       }
     }
+    // 挂载beforeMount指令
+    if (dirs) {
+      invokeDirectiveHook(vnode, null, "beforeMount");
+    }
     // 插入
     hostInsert(el, container, anchor);
+    // 挂载mounted指令
+    if (dirs) {
+      invokeDirectiveHook(vnode, null, "mounted");
+    }
     log(logHide, "元素挂载完成", el);
   };
 
@@ -636,13 +732,14 @@ export const createRenderer: CreateRenderer = (options) => {
   const mountChildren = (
     children: VNodeChildAtom[],
     container: Element,
+    optimized: boolean,
     logHide: boolean = false
   ) => {
     log(logHide, "开始执行mountChildren循环调用patch挂载子节点...", children);
     for (let i = 0; i < children.length; i++) {
       // 子节点可能是 VNode | string，统一包装成VNode
       const child = (children[i] = normalizeVNode(children[i]));
-      patch(null, child, container);
+      patch(null, child, container, null, optimized);
     }
   };
 

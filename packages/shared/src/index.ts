@@ -37,6 +37,21 @@ export const invokeArrayFns = (fns: Function[]) => {
   }
 };
 
+export const toDisplayString = (val: any): string => {
+  return isString(val)
+    ? val
+    : val == null
+    ? ""
+    : isArray(val) || isObject(val)
+    ? JSON.stringify(val)
+    : String(val);
+};
+
+export const toNumber = (val: any) => {
+  const newVal = parseFloat(val);
+  return isNaN(newVal) ? val : newVal;
+};
+
 export const log = (hide: boolean, ...args: any[]) =>
   !hide && console.log(...args);
 

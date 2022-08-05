@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- <script src="../../../node_modules/vue/dist/vue.global.js"></script> -->
+    <script src="../dist/runtime-dom.global.js"></script>
+    <script>
+      const {
+        h,
+        render,
+        Text,
+        Fragment,
+        ref,
+        onMounted,
+        openBlock: _openBlock,
+        createElementBlock: _createElementBlock,
+        createElementVNode: _createElementVNode,
+        toDisplayString: _toDisplayString,
+        createTextVNode: _createTextVNode,
+      } = VueRuntimeDOM;
+      let vnode;
+
+      const VueComponent = {
+        name: "VueComponent",
+        setup() {
+          const flag = ref(false);
+          const text = ref("dada");
+          onMounted(() => {
+            setTimeout(() => {
+              text.value += "da";
+              flag.value = !flag.value;
+            }, 1000);
+          });
+          return {
+            text,
+            flag,
+          };
+        },
+        render(_ctx) {
+          const vnode =
+            (_openBlock(),
+            _createElementBlock("div", null, [
+              _createElementVNode(
+                "p",
+                null,
+                _toDisplayString(_ctx.text),
+                1 /* TEXT */
+              ),
+              _ctx.flag
+                ? (_openBlock(),
+                  _createElementBlock("div", { key: 0 }, [
+                    _createTextVNode(
+                      _toDisplayString(_ctx.text) + " ",
+                      1 /* TEXT */
+                    ),
+                    _createElementVNode(
+                      "a",
+                      { href: _ctx.text },
+                      _toDisplayString(_ctx.text),
+                      9 /* TEXT, PROPS */,
+                      ["href"]
+                    ),
+                  ]))
+                : (_openBlock(),
+                  _createElementBlock(
+                    "div",
+                    { key: 1 },
+                    _toDisplayString(_ctx.text),
+                    1 /* TEXT */
+                  )),
+            ]));
+          console.log(vnode);
+          return vnode;
+        },
+      };
+      vnode = h(VueComponent);
+      render(vnode, document.getElementById("app"));
+    </script>
+  </body>
+</html>

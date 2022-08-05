@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
+    <script src="../dist/runtime-dom.global.js"></script>
+    <script>
+      const {
+        h,
+        render,
+        Text,
+        Fragment,
+        ref,
+        onMounted,
+        openBlock,
+        createElementBlock,
+        createElementVNode,
+        toDisplayString,
+      } = VueRuntimeDOM;
+      let vnode;
+
+      const VueComponent = {
+        name: "VueComponent",
+        setup() {
+          const a = ref("dada");
+          const b = ref("lala");
+          onMounted(() => {
+            setTimeout(() => {
+              a.value = "mamama";
+              b.value = "ssasaa";
+            }, 1000);
+          });
+          return {
+            a,
+            b,
+          };
+        },
+        render(_ctx) {
+          const vnode =
+            (openBlock(),
+            createElementBlock("div", null, [
+              createElementVNode(
+                "p",
+                null,
+                toDisplayString(_ctx.a),
+                1 /* TEXT */
+              ),
+              createElementVNode("div", null, [
+                createElementVNode(
+                  "a",
+                  { href: _ctx.b },
+                  toDisplayString(_ctx.a),
+                  9 /* TEXT, PROPS */,
+                  ["href"]
+                ),
+              ]),
+            ]));
+          console.log(vnode);
+          return vnode;
+        },
+      };
+      vnode = h(VueComponent);
+      render(vnode, document.getElementById("app"));
+    </script>
+  </body>
+</html>

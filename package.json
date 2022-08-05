@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev-re": "node scripts/dev.js reactivity -f global",
-    "dev-core": "node scripts/dev.js runtime-core -f global",
-    "dev-dom": "node scripts/dev.js runtime-dom -f global",
-    "dev-compile": "node scripts/dev.js compiler-core -f global",
+    "dev-rc": "node scripts/dev.js runtime-core -f global",
+    "dev-rd": "node scripts/dev.js runtime-dom -f global",
+    "dev-cc": "node scripts/dev.js compiler-core -f global",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

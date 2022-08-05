@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
+    <script src="../dist/runtime-dom.global.js"></script>
+    <script>
+      const {
+        h,
+        render,
+        Text,
+        Fragment: _Fragment,
+        renderList: _renderList,
+        ref,
+        onMounted,
+        openBlock: _openBlock,
+        createElementBlock: _createElementBlock,
+        createElementVNode: _createElementVNode,
+        toDisplayString: _toDisplayString,
+        createTextVNode: _createTextVNode,
+        withDirectives: _withDirectives,
+        createVNode: _createVNode,
+        vShow: _vShow,
+        vModelText: _vModelText,
+      } = VueRuntimeDOM;
+      let vnode;
+      const MyComponent = {
+        name: "MyComponent",
+        setup(props) {
+          return () => h("span", "月球");
+        },
+      };
+      const VueComponent = {
+        name: "VueComponent",
+        setup() {
+          const text = ref("dada");
+          const showText = ref(false);
+          onMounted(() => {
+            setTimeout(() => {
+              text.value += "da";
+              showText.value = true;
+            }, 1000);
+          });
+          return {
+            text,
+            showText,
+          };
+        },
+        render(_ctx) {
+          const vnode =
+            (_openBlock(),
+            _createElementBlock("div", null, [
+              _withDirectives(
+                _createElementVNode(
+                  "input",
+                  {
+                    "onUpdate:modelValue": ($event) => (_ctx.text = $event),
+                  },
+                  null,
+                  8 /* PROPS */,
+                  ["onUpdate:modelValue"]
+                ),
+                [
+                  [_vModelText, _ctx.text, undefined, { trim: true }],
+                  [_vShow, _ctx.showText],
+                ]
+              ),
+              _createElementVNode(
+                "span",
+                null,
+                _toDisplayString(_ctx.text),
+                1 /* TEXT */
+              ),
+              _withDirectives(
+                _createVNode(MyComponent, null, null, 512 /* NEED_PATCH */),
+                [[_vShow, _ctx.showText]]
+              ),
+            ]));
+          console.log(vnode);
+          return vnode;
+        },
+      };
+      vnode = h(VueComponent);
+      render(vnode, document.getElementById("app"));
+    </script>
+  </body>
+</html>

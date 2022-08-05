@@ -13,3 +13,7 @@ export const render: Renderer["render"] = (...args) => {
 
 export * from "@vue/runtime-core";
 export * from "@vue/reactivity";
+export * from "@vue/shared";
+
+export { vShow } from "./directives/vShow";
+export { vModelText } from "./directives/vModelText";

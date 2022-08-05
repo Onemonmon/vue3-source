@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- <script src="../../../node_modules/@vue/runtime-dom/dist/runtime-dom.global.js"></script> -->
+    <script src="../dist/runtime-dom.global.js"></script>
+    <script>
+      const {
+        h,
+        render,
+        Text,
+        Fragment: _Fragment,
+        renderList: _renderList,
+        ref,
+        onMounted,
+        openBlock: _openBlock,
+        createElementBlock: _createElementBlock,
+        createElementVNode: _createElementVNode,
+        toDisplayString: _toDisplayString,
+        createTextVNode: _createTextVNode,
+      } = VueRuntimeDOM;
+      let vnode;
+
+      const VueComponent = {
+        name: "VueComponent",
+        setup() {
+          const list = ref([1, 2, 3, 4]);
+          const text = ref("dada");
+          onMounted(() => {
+            setTimeout(() => {
+              text.value += "da";
+            }, 1000);
+          });
+          return {
+            text,
+            list,
+          };
+        },
+        render(_ctx) {
+          const vnode =
+            (_openBlock(),
+            _createElementBlock("div", null, [
+              _createElementVNode(
+                "p",
+                null,
+                _toDisplayString(_ctx.text),
+                1 /* TEXT */
+              ),
+              (_openBlock(true),
+              _createElementBlock(
+                _Fragment,
+                null,
+                _renderList(_ctx.list, (item) => {
+                  return (
+                    _openBlock(),
+                    _createElementBlock(
+                      "div",
+                      { key: item },
+                      _toDisplayString(item),
+                      1 /* TEXT */
+                    )
+                  );
+                }),
+                128 /* KEYED_FRAGMENT */
+              )),
+            ]));
+          console.log(vnode);
+          return vnode;
+        },
+      };
+      vnode = h(VueComponent);
+      render(vnode, document.getElementById("app"));
+    </script>
+  </body>
+</html>

@@ -205,3 +205,13 @@ export const createSetupContext = (
     slots: instance.slots || {},
   };
 };
+
+export const renderComponentRoot = (instance: ComponentInternalInstance) => {
+  const { proxy, render, vnode } = instance;
+  const result = render!.call(proxy, proxy);
+  // 组件的指令绑定在subTree的根节点
+  if (vnode.dirs) {
+    result.dirs = result.dirs ? result.dirs.concat(vnode.dirs) : vnode.dirs;
+  }
+  return result;
+};

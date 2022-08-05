@@ -21,7 +21,10 @@ export type WatchCallback = (
   onCleanup?: Function
 ) => void;
 
-function traverse(target: Record<string, any>, seen: Set<any> = new Set()) {
+export function traverse(
+  target: Record<string, any>,
+  seen: Set<any> = new Set()
+) {
   // 不是对象，或不需要代理
   if (!isObject(target) || target[ReactiveFlags.SKIP]) {
     return target;
